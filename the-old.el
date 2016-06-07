@@ -4,15 +4,17 @@
 (require 'url)
 (require 'shr)
 (require 'pp)
-(require 'cl)
-;(require 'browse-url)
-
 
 (defvar the-old-api-url "https://theoldreader.com/reader/api/0/")
 (defvar the-old-api-login-url "https://theoldreader.com/accounts/ClientLogin?output=json")
-(defvar the-old-api-login nil) 
+;; the old reader login
+(defvar the-old-api-login nil)
+;; the old reader password
 (defvar the-old-api-passwd nil)
+;; get answers in json format
 (defvar the-old-api-params "?output=json")
+;; lookup table to convert local commands to the old reader API commands
+;; if API commands will be changed, we'll need to edit second column
 (defvar the-old-api-cmd
   '((:userinfo      . "user-info")
     (:token         . "token")
@@ -26,7 +28,7 @@
     (:items         . "stream/items/contents")
     (:stream        . "stream/contents")
     ))
-
+;; lookup table to convert json fields to local names
 (defvar folder-fields
   '((:id            . id)
     (:sortid        . sortid)))
