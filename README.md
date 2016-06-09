@@ -11,4 +11,4 @@ TODO list
 - [ ] toggle show all/unread
 - [ ] show folders with unread count
 - [ ] show subscriptions with unread count
-- [ ] search?
+- [ ] search in subject / short conents / full conents (?)
