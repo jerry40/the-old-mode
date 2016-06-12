@@ -1,4 +1,4 @@
-# the-old-mode
+# the old reader emacs mode
 emacs mode to read The Old Reader subscriptions
 
 ![Screenshot]
