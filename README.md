@@ -12,3 +12,6 @@ TODO list
 - [ ] show folders with unread count
 - [ ] show subscriptions with unread count
 - [ ] search in subject / short conents / full conents (?)
+- [ ] add / remove subscription
+- [ ] create / remove folder
+- [ ] move subscription between folders
