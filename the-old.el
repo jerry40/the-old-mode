@@ -27,6 +27,7 @@
     (:item-ids      . "stream/items/ids")
     (:items         . "stream/items/contents")
     (:stream        . "stream/contents")
+    (:update-item   . "edit-tag")
     ))
 ;; lookup table to convert json fields to local names
 (defvar folder-fields
@@ -86,6 +87,14 @@
 
 (defvar the-old-menu-sort-key nil
   "sort packages by key")
+
+;; current mode (folders / subscriptions / articles)
+(defvar the-old-current-mode nil
+  "current mode (folders / subscriptions / articles)")
+
+;; function to show list of current entities
+(defvar the-old-current-list-function
+  'get-subscriptions-menu)
 
 ;; =================================================================================================
 ;; menu 
@@ -188,14 +197,25 @@
 					   ("accountType" . "HOSTED_OR_GOOGLE")
 					   ("service" . "reader")
 					   ("Email" . ,the-old-api-login)
-					   ("Passwd" . ,the-old-api-passwd)))))    
+					   ("Passwd" . ,the-old-api-passwd)))))
     (cdr (assoc 'Auth (json-read-from-string client-login)))))
 
+(defun api-toggle-article-read (article)
+  (let* ((article-id (article-param :id article))
+	 (param (if (article-unread? article) '("r" . "user/-/state/com.google/read") '("a" . "user/-/state/com.google/unread") )))
+    ;(message (concat the-old-api-url (cdr (assoc :update-item the-old-api-cmd))))
+;    (message `(("i" . ,article-id)
+;		("Authorization" . ,(concat "GoogleLogin auth=" token))
+;		,param))
+    (api-post (concat the-old-api-url (cdr (assoc :update-item the-old-api-cmd)))
+	      `(("i" . ,article-id)
+		("Authorization" . ,(concat "GoogleLogin auth=" token))
+		,param))))
 ;; =================================================================================================
 ;; helpers
 ;; =================================================================================================
 (defun filter (f col)
-  "classic filter function"
+  "classical filter function"
   (remove-if-not f col))
 
 (defun alist-get (lst key)
@@ -211,7 +231,9 @@
   (append vec nil))
 
 (defun date-diff (sec)
+  "Convert date diference in seconds to human readable format"
   (cond
+   ((< sec 0) "never")
    ((< sec 3600) (concat (number-to-string (/ sec 60)) " m"))
    ((< sec (* 24 3600)) (concat (number-to-string (/ sec 3600)) " h"))
    ((< sec (* 365 24 3600)) (concat (number-to-string (/ sec (* 24 3600))) " d"))
@@ -352,6 +374,16 @@
 							 (article-param :canonical (get-article (get-row-id)))
 							 0))))
 					     (browse-url addr))))
+  (define-key the-old-menu-mode-map "m" '(lambda () (interactive)
+					   (setq the-old-current-list-function
+						 (cond
+						  ((eq the-old-current-mode :folders) 'get-subscriptions-menu)
+						  ((eq the-old-current-mode :subscriptions) 'get-articles-menu)
+						  ((eq the-old-current-mode :articles) 'get-folders-menu)))
+					   (the-old-redraw)
+					   ))
+  (define-key the-old-menu-mode-map "r" '(lambda () (interactive)
+					   (the-old)))
 					     
   ;; sort columns
   ;(define-key the-old-menu-mode-map "1" '(lambda () (interactive) (get-messages-menu-sort-by-column-interactively 0)))
@@ -362,14 +394,16 @@
   ;(define-key the-old-menu-mode-map "6" '(lambda () (interactive) (get-messages-menu-sort-by-column-interactively 5)))
   ;(define-key the-old-menu-mode-map "7" '(lambda () (interactive) (get-messages-menu-sort-by-column-interactively 6)))
   ;; toggle bHold
-  ;(define-key the-old-menu-mode-map (kbd "SPC") 'menu-read-toggle)
+  (define-key the-old-menu-mode-map (kbd "SPC") (lambda () (interactive)
+						  (api-toggle-article-read (get-article (get-row-id)))
+						  ))
   ;; show record info
   (define-key the-old-menu-mode-map (kbd "RET") '(lambda () (interactive) 
-						 (let ((str (article-param :content (get-article (get-row-id)))))
-						   (with-temp-buffer
-						     (insert str)
-						     (shr-render-buffer (current-buffer))))
-						 (other-window 1)))
+						   (let ((str (article-param :content (get-article (get-row-id)))))
+						     (with-temp-buffer
+						       (insert str)
+						       (shr-render-buffer (current-buffer))))
+						   (other-window 1)))
   (define-key the-old-menu-mode-map (kbd "e") '(lambda () (interactive) 
 						 (let ((addr (cdar
 							      (elt
@@ -428,8 +462,9 @@
 	 (name (folder-param :id folder))
 	 (unread (get-unread-by-container folder))
 	 (count (if (null unread) 0 (unread-param :count unread)))
-	 (timestamp (if (null unread) 0 (/ (string-to-number (unread-param :timestamp unread)) 1000000)))
-	 (date (if (null unread) "" (format-time-string "%F %T" (seconds-to-time timestamp)))))
+	 (timestamp (if (null unread) (floor (+ 100 (time-to-seconds (current-time)))) (/ (string-to-number (unread-param :timestamp unread)) 1000000)))
+	 ;(date (if (null unread) "" (format-time-string "%F %T" (seconds-to-time timestamp)))))
+	 (date (date-diff (- (floor (time-to-seconds (current-time))) timestamp))))
     (let ((face (cond
 		 ((> count 0) 'font-lock-comment-face)
 		 (t 'default))))
@@ -440,7 +475,7 @@
       (indent-to (alist-get menu-folder-columns "Date") 2)
       (insert (propertize date 'font-lock-face face))
       ; name
-      (indent-to (alist-get menu-folder-columns "Title") 2)
+      (indent-to (alist-get menu-folder-columns "Name") 2)
       (insert (propertize name 'font-lock-face face))
       ; unread count
       (indent-to (alist-get menu-folder-columns "Unread") 2)
@@ -456,8 +491,9 @@
 	 (count (if (null unread) 0 (unread-param :count unread)))
 	 ;(timestamp (/ (string-to-number (subscription-param :timestamp subscription)) 1000000))
 	 ;(date (format-time-string "%F %T" (seconds-to-time timestamp)))
-	 (timestamp (if (null unread) 0 (/ (string-to-number (unread-param :timestamp unread)) 1000000)))
-	 (date (if (null unread) "" (format-time-string "%F %T" (seconds-to-time timestamp)))))
+	 (timestamp (if (null unread) (floor (+ 100 (time-to-seconds (current-time)))) (/ (string-to-number (unread-param :timestamp unread)) 1000000)))
+	 ;(date (if (null unread) "" (format-time-string "%F %T" (seconds-to-time timestamp)))))
+    	 (date (date-diff (- (floor (time-to-seconds (current-time))) timestamp))))
     (let ((face (cond
 		((= count 0) 'font-lock-comment-face)
 		(t 'default))))
@@ -513,6 +549,7 @@
 
 (defun get-list-folders ()
   "Get folders and print them into table"
+  (setq the-old-current-mode :folders)
   (with-current-buffer (get-buffer-create the-old-buffer)
     (setq buffer-read-only nil)
     (erase-buffer)
@@ -530,12 +567,12 @@
 ;			    (let* ((unread (get-unread-by-container item))
 ;				   (count (if (null unread) 0 (unread-param :count unread))))
 ;			      count))))))
-	(setq items
-	      (sort items
-		    (lambda (left right)
-		      (let ((vleft (funcall selector left))
-			    (vright (funcall selector right)))
-			(string< vleft vright)))))
+;	(setq items
+;	      (sort items
+;		    (lambda (left right)
+;		      (let ((vleft (funcall selector left))
+;			    (vright (funcall selector right)))
+;			(string< vleft vright)))))
 	(mapc (lambda (item)
 		(menu-folder-row item))
 	      items)))
@@ -549,6 +586,7 @@
 
 (defun get-list-subscriptions ()
   "Get subscriptions and print them into table"
+  (setq the-old-current-mode :subscriptions)
   (with-current-buffer (get-buffer-create the-old-buffer)
     (setq buffer-read-only nil)
     (erase-buffer)
@@ -585,6 +623,7 @@
 
 (defun get-list-articles ()
   "Get subscriptions and print them into table"
+  (setq the-old-current-mode :articles)
   (with-current-buffer (get-buffer-create the-old-buffer)
     (setq buffer-read-only nil)
     (erase-buffer)
@@ -663,6 +702,62 @@
 ;;
 (defun get-folders-menu ()
   "Shows menu"
+  (with-current-buffer (get-list-folders)
+    (get-messages-menu-mode)
+    (setq header-line-format
+          (mapconcat
+           (lambda (pair)
+             (let ((name (car pair))
+                   (column (cdr pair)))
+               (concat
+                ;; Insert a space that aligns the button properly.
+                (propertize " " 'display (list 'space :align-to column)
+                            'face 'fixed-pitch)
+                ;; Set up the column button.
+                (propertize name
+                            'column-name name
+                            'help-echo "mouse-1: sort by column"
+                            'mouse-face 'highlight
+                            'keymap get-messages-menu-sort-button-map
+			    ))))
+           menu-folder-columns ""))
+    (switch-to-buffer (current-buffer) nil t)
+    )
+  )
+
+;;
+;; Paints the user menu at top of the buffer and pulls functions to populate the main screen
+;;
+(defun get-subscriptions-menu ()
+  "Shows subscriptions secreen"
+  (with-current-buffer (get-list-subscriptions)
+    (get-messages-menu-mode)
+    (setq header-line-format
+          (mapconcat
+           (lambda (pair)
+             (let ((name (car pair))
+                   (column (cdr pair)))
+               (concat
+                ;; Insert a space that aligns the button properly.
+                (propertize " " 'display (list 'space :align-to column)
+                            'face 'fixed-pitch)
+                ;; Set up the column button.
+                (propertize name
+                            'column-name name
+                            'help-echo "mouse-1: sort by column"
+                            'mouse-face 'highlight
+                            'keymap get-messages-menu-sort-button-map
+			    ))))
+           menu-subscription-columns ""))
+    (switch-to-buffer (current-buffer) nil t)
+    )
+  )
+
+;;
+;; Paints the user menu at top of the buffer and pulls functions to populate the main screen
+;;
+(defun get-articles-menu ()
+  "Shows articles secreen"
   (with-current-buffer (get-list-articles)
     (get-messages-menu-mode)
     (setq header-line-format
@@ -697,11 +792,21 @@
   (refresh-structure)
   (refresh-container-items (get-subscription "s=user/-/state/com.google/reading-list")) ;;"feed/573c0b8dc70bc2551d0004c1"))
   (let ((p (point)))
-    (get-folders-menu)
+    ;(get-subscriptions-menu)
+    (funcall the-old-current-list-function)
     (goto-char p)))
 
-
-
+(defun the-old-redraw ()
+  "Display a list of folders."
+  (interactive)
+  ;(unless filter-preset-current (filter-preset-parse-and-set 0)) ;; set filter for first time
+  ;(setq token (api-get-token))
+  ;(refresh-structure)
+  ;(refresh-container-items (get-subscription "s=user/-/state/com.google/reading-list")) ;;"feed/573c0b8dc70bc2551d0004c1"))
+  (let ((p (point)))
+    ;(get-subscriptions-menu)
+    (funcall the-old-current-list-function)
+    (goto-char p)))
 
 ;;(switch-to-buffer (test "https://theoldreader.com/reader/api/0/stream/contents?output=json"))
 
@@ -759,4 +864,4 @@
 ;(article-param :alternate (get-article "tag:google.com,2005:reader/item/5753ddee5f45b74522000339"))
 
 
-(article-param :origin-title (get-article "tag:google.com,2005:reader/item/5753ddee5f45b74522000339"))
+;(article-param :origin-title (get-article "tag:google.com,2005:reader/item/5753ddee5f45b74522000339"))
