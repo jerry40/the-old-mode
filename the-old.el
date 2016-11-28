@@ -11,6 +11,8 @@
 (defvar the-old-api-login nil)
 ;; the old reader password
 (defvar the-old-api-passwd nil)
+;; the old reader security token
+(defvar the-old-api-token nil)
 ;; get answers in json format
 (defvar the-old-api-params "?output=json")
 ;; lookup table to convert local commands to the old reader API commands
@@ -71,8 +73,6 @@
     )
   )
   
-;; google security token
-(defvar token ())
 (defvar the-old-folders ())
 (defvar the-old-subscriptions ())
 (defvar the-old-articles ())
@@ -146,44 +146,35 @@
      params
      )))
 
-(defun api-get (addr)
+(defun api-ask (query-type addr &optional args)
+  "query-type = POST/GET, addr = web address, args = arguments (body of POST)"
   (with-current-buffer
-      (let ((url-request-method "GET")
+      (let ((url-request-method query-type)
 	    (url-request-extra-headers
-	     `(
-	       ("Content-Type" . "application/x-www-form-urlencoded")
-	       ("Authorization" . ,(concat "GoogleLogin auth=" token)))))
-	(url-retrieve-synchronously addr))
-    (goto-char (point-min))
-    (re-search-forward "^$")
-    (delete-region (point) (point-min))
-    (decode-coding-string (buffer-string) 'utf-8)))
-
-(defun test (addr)
-  (let ((url-request-method "GET")
-	(url-request-extra-headers
-	 `(
-	   ("Content-Type" . "application/x-www-form-urlencoded")
-	   ("Authorization" . ,(concat "GoogleLogin auth=" token)))))
-    (url-retrieve-synchronously addr)))
-
-(defun api-post (addr args)
-  (with-current-buffer
-      (let ((url-request-method "POST")
-	    (url-request-extra-headers
-	     '(("Content-Type" . "application/x-www-form-urlencoded")))
+	     (list '("Content-Type" . "application/x-www-form-urlencoded")
+		   (when the-old-api-token `("Authorization" . ,(concat "GoogleLogin auth=" the-old-api-token)))))
 	    (url-request-data
 	     (mapconcat (lambda (arg)
 			  (concat (url-hexify-string (car arg))
 				  "="
 				  (url-hexify-string (cdr arg))))
 			args
-			"&")))
-        (url-retrieve-synchronously addr))
+			"&"))
+	    )
+	(url-retrieve-synchronously addr))
     (goto-char (point-min))
     (re-search-forward "^$")
     (delete-region (point) (point-min))
-    (buffer-string)))
+    (decode-coding-string (buffer-string) 'utf-8)))
+
+
+(defun api-get (addr)
+  "GET from address"
+  (api-ask "GET" addr))
+
+(defun api-post (addr args)
+  "POST args to address"
+  (api-ask "POST" addr args))
 
 (defun api-query (cmd &optional params)
   "generic api query"
@@ -192,6 +183,7 @@
     (get-cmd-url cmd params))))
 
 (defun api-get-token ()
+  "get security token by usern ame and pasword"
   (let ((client-login
 	 (api-post the-old-api-login-url `(("client" . "the-old-emacs")
 					   ("accountType" . "HOSTED_OR_GOOGLE")
@@ -201,16 +193,19 @@
     (cdr (assoc 'Auth (json-read-from-string client-login)))))
 
 (defun api-toggle-article-read (article)
+  "toggle an article read / unread"
   (let* ((article-id (article-param :id article))
-	 (param (if (article-unread? article) '("r" . "user/-/state/com.google/read") '("a" . "user/-/state/com.google/unread") )))
-    ;(message (concat the-old-api-url (cdr (assoc :update-item the-old-api-cmd))))
-;    (message `(("i" . ,article-id)
-;		("Authorization" . ,(concat "GoogleLogin auth=" token))
-;		,param))
+	 (param (if (article-unread? article) '("a" . "user/-/state/com.google/read") '("r" . "user/-/state/com.google/read") )))
     (api-post (concat the-old-api-url (cdr (assoc :update-item the-old-api-cmd)))
 	      `(("i" . ,article-id)
-		("Authorization" . ,(concat "GoogleLogin auth=" token))
 		,param))))
+
+(defun api-set-article-read (article)
+  (when (article-unread? article) (api-toggle-article-read article)))
+
+(defun api-set-article-unread (article)
+  (unless (article-unread? article) (api-toggle-article-read article)))
+  
 ;; =================================================================================================
 ;; helpers
 ;; =================================================================================================
@@ -382,7 +377,8 @@
 						  ((eq the-old-current-mode :articles) 'get-folders-menu)))
 					   (the-old-redraw)
 					   ))
-  (define-key the-old-menu-mode-map "r" '(lambda () (interactive)
+  ;; refresh (get all data)
+  (define-key the-old-menu-mode-map "R" '(lambda () (interactive)
 					   (the-old)))
 					     
   ;; sort columns
@@ -395,14 +391,22 @@
   ;(define-key the-old-menu-mode-map "7" '(lambda () (interactive) (get-messages-menu-sort-by-column-interactively 6)))
   ;; toggle bHold
   (define-key the-old-menu-mode-map (kbd "SPC") (lambda () (interactive)
-						  (api-toggle-article-read (get-article (get-row-id)))
-						  ))
-  ;; show record info
-  (define-key the-old-menu-mode-map (kbd "RET") '(lambda () (interactive) 
-						   (let ((str (article-param :content (get-article (get-row-id)))))
+						  (api-toggle-article-read (get-article (get-row-id)))))
+  ;; set item read
+  (define-key the-old-menu-mode-map (kbd "r") (lambda () (interactive)
+						  (api-set-article-read (get-article (get-row-id)))))
+  ;; set item unread
+  (define-key the-old-menu-mode-map (kbd "u") (lambda () (interactive)
+						  (api-set-article-unread (get-article (get-row-id)))))
+  ;; show article / open folder / open subscription
+  (define-key the-old-menu-mode-map (kbd "RET") '(lambda () (interactive)
+						   (letrec ((article (get-article (get-row-id)))
+							    (str (article-param :content article)))
 						     (with-temp-buffer
 						       (insert str)
-						       (shr-render-buffer (current-buffer))))
+						       (shr-render-buffer (current-buffer)))
+						     (run-at-time "0 sec" nil 'api-set-article-read article)
+						     )
 						   (other-window 1)))
   (define-key the-old-menu-mode-map (kbd "e") '(lambda () (interactive) 
 						 (let ((addr (cdar
@@ -418,24 +422,6 @@
   ;(define-key the-old-menu-mode-map "h" 'menu-quick-help)
   ;; quit
   (define-key the-old-menu-mode-map "q" 'quit-window))
-
-
-;(defun get-items-by-folder
-
-;; folders example
-
-; [((sortid . "ffffffffffffffffffffffff") (id . "user/-/state/com.google/starred")) ((sortid . "52e61550fea0e760b30000ae") (id . "user/-/label/Новая папка")) ((sortid . "573c0bcefea0e7b66e00004f") (id . "user/-/label/Clojure"))]
-
-;; subscriptions example
-
-; ((iconUrl . "//s.theoldreader.com/system/uploads/feed/picture/50e2/ea12/e721/ec9f/ff00/icon_1bf7.ico") (htmlUrl . "http://www.opennet.ru/opennews/") (url . "http://opennet.ru/opennews/opennews_all.rss") (firstitemmsec . "1464468506000") (sortid . "51d55f89d1716ce9550000fd") (categories . []) (title . "OpenNews.opennet.ru: Основная лента") (id . "feed/51d55f89d1716ce9550000fd"))
-; ((iconUrl . "//s.theoldreader.com/system/uploads/feed/picture/50e2/ea0b/bd92/79f1/0300/icon_0383.ico") (htmlUrl . "http://avvakoum.livejournal.com/") (url . "http://avvakoum.livejournal.com/data/rss") (firstitemmsec . "1464518384000") (sortid . "51d55facd1716ca33a000047") (categories . []) (title . "Личный Опыт") (id . "feed/51d55facd1716ca33a000047"))
-
-;; unread-count example
-
-; ((newestItemTimestampUsec . "1464544031000000") (count . 1114) (id . "user/-/state/com.google/reading-list"))
-; ((newestItemTimestampUsec . "1464518378000000") (count . 12) (id . "user/-/label/Новая папка"))
-; ((newestItemTimestampUsec . "1464341733000000") (count . 4) (id . "feed/54be0848fea0e78a0c00040a"))
 
 ;;
 ;; Here are functions to parse rows on the screen in order to get their IDs, for instance
@@ -788,7 +774,7 @@
   "Display a list of folders."
   (interactive)
   ;(unless filter-preset-current (filter-preset-parse-and-set 0)) ;; set filter for first time
-  (setq token (api-get-token))
+  (unless the-old-api-token (setq the-old-api-token (api-get-token)))
   (refresh-structure)
   (refresh-container-items (get-subscription "s=user/-/state/com.google/reading-list")) ;;"feed/573c0b8dc70bc2551d0004c1"))
   (let ((p (point)))
@@ -799,69 +785,6 @@
 (defun the-old-redraw ()
   "Display a list of folders."
   (interactive)
-  ;(unless filter-preset-current (filter-preset-parse-and-set 0)) ;; set filter for first time
-  ;(setq token (api-get-token))
-  ;(refresh-structure)
-  ;(refresh-container-items (get-subscription "s=user/-/state/com.google/reading-list")) ;;"feed/573c0b8dc70bc2551d0004c1"))
   (let ((p (point)))
-    ;(get-subscriptions-menu)
     (funcall the-old-current-list-function)
     (goto-char p)))
-
-;;(switch-to-buffer (test "https://theoldreader.com/reader/api/0/stream/contents?output=json"))
-
-;;(api-update 'login)
-
-;(setq token (api-get-token))
-;(refresh-structure)
-;(refresh-container-items (get-subscription "feed/573c0b8dc70bc2551d0004c1"))
-;(the-old)
-;(api-query 'userinfo)
-;(api-query 'status)
-;(cdr (assoc 'tags (api-query 'folders)))
-;(aref (cdr (assoc 'unreadcounts (api-query 'unread-count))) 6)
-;(assoc 'categories (aref (cdr (assoc 'subscriptions (api-query 'subscriptions))) 25))
-;(test (get-cmd-url 'userinfo))
-;the-old-unread
-;(alist-get (api-query :folders) 'tags)
-;(alist-get (api-query :unread-count) 'unreadcounts)
-;(get-unread-by-container (get-folder "user/-/label/Clojure"))
-;(get-unread-by-container (get-subscription "feed/57498699c70bc27dea0007df"))
-;(unread-param :count (get-obj-by-id "user/-/label/Новая папка" the-old-unread));
-
-;(get-unread-by-container (get-folder "user/-/label/Clojure"))
-
-;(filter (lambda (x) (string= x "user/-/state/com.google/read"))
-;	(vec-to-list (article-param :categories (get-article "tag:google.com,2005:reader/item/5753ddee5f45b74522000339"))))
-
-;(article-unread? (get-article "tag:google.com,2005:reader/item/5753ddee5f45b74522000339"))
-;(article-param :summary (get-article "tag:google.com,2005:reader/item/5753ddee5f45b74522000339"))
-
-;(rest '("user/-/state/com.google/reading-list" "user/-/state/com.google/read"))
-;((lambda (x) (string= x "user/-/state/com.google/read")) (car '("user/-/state/com.google/reading-list" "user/-/state/com.google/read")))
-;((lambda (x) (string= x "user/-/state/com.google/read")) (car '("user/-/state/com.google/read")))
-
- 
-;(get-subscriptions-by-folder (get-folder "user/-/label/Clojure"))
-;(menu-folder-row (get-folder "user/-/label/Clojure"))
-
-;(map menu-folder-row the-old-folders)
-
-;(mapc #'menu-folder-row the-old-folders)
-;(mapc #'menu-subscription-row the-old-subscriptions)
-;(mapc #'menu-article-row (vec-to-list (alist-get the-old-articles 'items)))
-
-;(get-cmd-url :stream "&s=user/-/label/Новая%20папка")
-;(mapc (lambda (x) (alist-get x 'id)) (vec-to-list (refresh-container-items (get-folder "user/-/label/Новая папка"))))
-
-;(set-language-environment "UTF-8")
-;(set-default-coding-systems 'utf-8)
-
-;(mapc #'menu-article-row (vec-to-list (alist-get the-old-articles 'items))) 
-
-
-;(cdar (elt (article-param :canonical (get-article "tag:google.com,2005:reader/item/5753ddee5f45b74522000339")) 0))
-;(article-param :alternate (get-article "tag:google.com,2005:reader/item/5753ddee5f45b74522000339"))
-
-
-;(article-param :origin-title (get-article "tag:google.com,2005:reader/item/5753ddee5f45b74522000339"))
