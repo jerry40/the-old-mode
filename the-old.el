@@ -72,7 +72,8 @@
 		       (:stream-id . streamId)))
     )
   )
-  
+
+;; data lists
 (defvar the-old-folders ())
 (defvar the-old-subscriptions ())
 (defvar the-old-articles ())
@@ -87,6 +88,10 @@
 
 (defvar the-old-menu-sort-key nil
   "sort packages by key")
+
+;; global filters
+(defvar the-old-filter-folder ())        ; current selected folder id
+(defvar the-old-filter-subscription "feed/51d55f89d1716ce9550000fd")  ; current selected subscription id
 
 ;; current mode (folders / subscriptions / articles)
 (defvar the-old-current-mode nil
@@ -263,7 +268,8 @@
   "get alist from a list of alists by 'id field"
   (let ((res
 	 (filter
-	  (lambda (f) (equal id (alist-get f 'id)))
+	  (lambda (f)
+	    (string= id (alist-get f 'id)))
 	  a-list)))
     (if (null res)
 	res
@@ -283,13 +289,17 @@
 
 (defun get-subscriptions-by-folder (folder)
   "get subscriptions by folder"
-  (let ((f-id (folder-param :id folder)))
-    (filter (lambda (s)
-	      (not (null
-		    (get-obj-by-id
-		     f-id
-		     (vec-to-list (subscription-param :categories s))))))
-	    the-old-subscriptions)))
+  (let ((folder-id (folder-param :id folder)))
+    (get-subscriptions-by-folder-id folder-id)))
+
+(defun get-subscriptions-by-folder-id (folder-id)
+  "get subscriptions by folder id"
+  (filter (lambda (s)
+	    (not (null
+		  (get-obj-by-id
+		   folder-id
+		   (vec-to-list (subscription-param :categories s))))))
+	  the-old-subscriptions))
 
 (defun get-unread-by-container (cont)
   "get unread count for particular folder or subscription"
@@ -380,6 +390,13 @@
   ;; refresh (get all data)
   (define-key the-old-menu-mode-map "R" '(lambda () (interactive)
 					   (the-old)))
+
+  (define-key the-old-menu-mode-map (kbd "M-a") '(lambda () (interactive)
+					     (progn
+					       (setq the-old-filter-folder nil)
+					       (setq the-old-filter-subscription nil)
+					       (message "Filters cleared")
+					       (the-old-redraw))))
 					     
   ;; sort columns
   ;(define-key the-old-menu-mode-map "1" '(lambda () (interactive) (get-messages-menu-sort-by-column-interactively 0)))
@@ -399,15 +416,29 @@
   (define-key the-old-menu-mode-map (kbd "u") (lambda () (interactive)
 						  (api-set-article-unread (get-article (get-row-id)))))
   ;; show article / open folder / open subscription
-  (define-key the-old-menu-mode-map (kbd "RET") '(lambda () (interactive)
-						   (letrec ((article (get-article (get-row-id)))
-							    (str (article-param :content article)))
-						     (with-temp-buffer
-						       (insert str)
-						       (shr-render-buffer (current-buffer)))
-						     (run-at-time "0 sec" nil 'api-set-article-read article)
-						     )
-						   (other-window 1)))
+  (define-key the-old-menu-mode-map (kbd "RET")
+
+
+    (lambda () (interactive)
+      (let ((id (get-row-id)))
+	(cond
+	 ((eq the-old-current-mode :folders) (progn
+					       (setq the-old-current-list-function 'get-subscriptions-menu)
+					       (setq the-old-filter-folder id)
+					       (the-old-redraw)))					       
+	 ((eq the-old-current-mode :subscriptions) (progn
+						     (setq the-old-current-list-function 'get-articles-menu)
+						     (setq the-old-filter-subscription id)
+						     (the-old-redraw)))
+	 (t
+	  (letrec ((article (get-article (get-row-id)))
+		   (str (article-param :content article)))
+	    (with-temp-buffer
+	      (insert str)
+	      (shr-render-buffer (current-buffer)))
+	    (run-at-time "0 sec" nil 'api-set-article-read article)
+	    (other-window 1)))))))
+  
   (define-key the-old-menu-mode-map (kbd "e") '(lambda () (interactive) 
 						 (let ((addr (cdar
 							      (elt
@@ -430,7 +461,7 @@
   "Get ID of active row in the table"
   (save-excursion
     (beginning-of-line)
-    (propertize (if (looking-at " \\([^ \t]*\\)")
+    (propertize (if (looking-at " \\([^\t]*\\)")
 		    (match-string 1)) 'invisible nil)))
 
 
@@ -456,7 +487,7 @@
 		 (t 'default))))
       ; id (hidden)
       (indent-to 1 1)
-      (insert (propertize id 'invisible t))
+      (insert (propertize (concat id "\t") 'invisible t))
       ; date
       (indent-to (alist-get menu-folder-columns "Date") 2)
       (insert (propertize date 'font-lock-face face))
@@ -485,7 +516,7 @@
 		(t 'default))))
       ; id (hidden)
       (indent-to 1 1)
-      (insert (propertize id 'invisible t))
+      (insert (propertize (concat id "\t") 'invisible t))
       ; date
       (indent-to (alist-get menu-subscription-columns "Date") 2)
       (insert (propertize date 'font-lock-face face))
@@ -517,7 +548,7 @@
 	 )
       ; id (hidden)
       (indent-to 1 1)
-      (insert (propertize id 'invisible t))
+      (insert (propertize (concat id "\t") 'invisible t))
       ; date
       (indent-to (alist-get menu-article-columns "Date") 2)
       (insert (propertize date 'font-lock-face face))
@@ -576,7 +607,12 @@
   (with-current-buffer (get-buffer-create the-old-buffer)
     (setq buffer-read-only nil)
     (erase-buffer)
-    (let* ((items the-old-subscriptions))
+    (let*
+	;((items the-old-subscriptions))
+	((items
+	  (if (null the-old-filter-folder)
+	      the-old-subscriptions
+	    (get-subscriptions-by-folder (get-folder the-old-filter-folder)))))
       (let ((selector (cond	       
 		       ((string= get-messages-menu-sort-key "Date")
 			#'(lambda (item) 0))
@@ -613,7 +649,15 @@
   (with-current-buffer (get-buffer-create the-old-buffer)
     (setq buffer-read-only nil)
     (erase-buffer)
-    (let* ((items the-old-articles))
+    (let*
+	;((items the-old-articles))
+	((items
+	  (if (null the-old-filter-subscription)
+	      the-old-articles
+	    (filter
+	     (lambda (a)
+	       (string= the-old-filter-subscription (article-param :stream-id a)))
+	     the-old-articles))))
       (let ((selector (cond	       
 		       ((string= get-messages-menu-sort-key "Date")
 			#'(lambda (item) 0))
