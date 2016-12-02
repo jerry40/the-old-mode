@@ -73,6 +73,12 @@
     )
   )
 
+(defvar item-parameters
+  '((:read     . "user/-/state/com.google/read")
+    (:starred  . "user/-/state/com.google/starred")
+    (:shared   . "user/-/state/com.google/broadcast")
+    (:liked    . "user/-/state/com.google/like")))
+
 ;; data lists
 (defvar the-old-folders ())
 (defvar the-old-subscriptions ())
@@ -91,7 +97,7 @@
 
 ;; global filters
 (defvar the-old-filter-folder ())        ; current selected folder id
-(defvar the-old-filter-subscription "feed/51d55f89d1716ce9550000fd")  ; current selected subscription id
+(defvar the-old-filter-subscription ())  ; current selected subscription id
 
 ;; current mode (folders / subscriptions / articles)
 (defvar the-old-current-mode nil
@@ -166,6 +172,7 @@
 			args
 			"&"))
 	    )
+	(message "%s" url-request-data)
 	(url-retrieve-synchronously addr))
     (goto-char (point-min))
     (re-search-forward "^$")
@@ -197,20 +204,50 @@
 					   ("Passwd" . ,the-old-api-passwd)))))
     (cdr (assoc 'Auth (json-read-from-string client-login)))))
 
-(defun api-toggle-article-read (article)
-  "toggle an article read / unread"
+;(defun api-toggle-article-read (article)
+;  "toggle an article read / unread"
+;  (let* ((article-id (article-param :id article))
+;	 (param (if (article-unread? article) '("a" . "user/-/state/com.google/read") '("r" . "user/-/state/com.google/read") )))
+;    (api-post (concat the-old-api-url (cdr (assoc :update-item the-old-api-cmd)))
+;	      `(("i" . ,article-id)
+;		,param))))
+
+(defun api-mark-article-parameter (article action parameter)
+  "set/unset article parameter, action: a - mark / r - remove mark"
   (let* ((article-id (article-param :id article))
-	 (param (if (article-unread? article) '("a" . "user/-/state/com.google/read") '("r" . "user/-/state/com.google/read") )))
+	 (param (alist-get item-parameters parameter)))
     (api-post (concat the-old-api-url (cdr (assoc :update-item the-old-api-cmd)))
-	      `(("i" . ,article-id)
-		,param))))
+	      `(("i"     . ,article-id)
+		(,action . ,param)))))
+
+(defun api-mark-article (article parameter)
+  "mark article with parameter"
+  (api-mark-article-parameter article "a" parameter))
+
+(defun api-unmark-article (article parameter)
+  "remove article mark"
+  (api-mark-article-parameter article "r" parameter))
+
+(defun api-toggle-article-parameter (article parameter)
+  "toggle article parameter"
+  (funcall (if (article-paramater-set? article parameter) 'api-unmark-article 'api-mark-article) article parameter))
 
 (defun api-set-article-read (article)
-  (when (article-unread? article) (api-toggle-article-read article)))
+  "set article read"
+  (when (article-unread? article) (api-mark-article article :read)))
 
 (defun api-set-article-unread (article)
-  (unless (article-unread? article) (api-toggle-article-read article)))
-  
+  "set article unread"
+  (unless (article-unread? article) (api-unmark-article article :read)))
+
+(defun api-set-article-starred (article)
+  "set article starred"
+  (when (article-starred? article) (api-mark-article article :starred)))
+
+(defun api-set-article-unstarred (article)
+  "set article unstarred"
+  (unless (article-starred? article) (api-unmark-article article :starred)))
+
 ;; =================================================================================================
 ;; helpers
 ;; =================================================================================================
@@ -349,11 +386,18 @@
   "get article attribute by parameter name"
   (get-value-by-param param article article-fields))
 
+(defun article-paramater-set? (article parameter)
+  "is parameter for article set?"
+  (let ((categories (vec-to-list (article-param :categories article))))
+    (not (null (filter (lambda (x) (string= x (alist-get item-parameters parameter))) categories)))))
+
 (defun article-unread? (article)
   "is article unread?"
-  (let ((categories (vec-to-list (article-param :categories article))))
-    (null (filter (lambda (x) (string= x "user/-/state/com.google/read")) categories))))
+  (not (article-paramater-set? article :read)))
 
+(defun article-starred? (article)
+  "is article unread?"
+  (article-paramater-set? article :starred))
 ;;
 ;; Keybindings
 ;;
@@ -366,6 +410,7 @@
   (define-key the-old-menu-mode-map "n" 'next-line)
   (define-key the-old-menu-mode-map "p" 'previous-line)
   (define-key the-old-menu-mode-map "i" '(lambda () (interactive) (message (get-row-id))))
+  (define-key the-old-menu-mode-map (kbd "TAB") '(lambda () (interactive) (message "%s" (get-article (get-row-id)))))
   (define-key the-old-menu-mode-map "W" '(lambda () (interactive)
 					   (let ((addr (cdar
 							(elt
@@ -406,15 +451,19 @@
   ;(define-key the-old-menu-mode-map "5" '(lambda () (interactive) (get-messages-menu-sort-by-column-interactively 4)))
   ;(define-key the-old-menu-mode-map "6" '(lambda () (interactive) (get-messages-menu-sort-by-column-interactively 5)))
   ;(define-key the-old-menu-mode-map "7" '(lambda () (interactive) (get-messages-menu-sort-by-column-interactively 6)))
-  ;; toggle bHold
+  ;; toggle read/unread
   (define-key the-old-menu-mode-map (kbd "SPC") (lambda () (interactive)
-						  (api-toggle-article-read (get-article (get-row-id)))))
+						  (api-toggle-article-parameter (get-article (get-row-id)) :read)))
   ;; set item read
   (define-key the-old-menu-mode-map (kbd "r") (lambda () (interactive)
 						  (api-set-article-read (get-article (get-row-id)))))
   ;; set item unread
   (define-key the-old-menu-mode-map (kbd "u") (lambda () (interactive)
 						  (api-set-article-unread (get-article (get-row-id)))))
+  ;; toggle star
+  (define-key the-old-menu-mode-map (kbd "s") (lambda () (interactive)
+;						  (api-set-article-starred (get-article (get-row-id)))))
+						(api-toggle-article-parameter (get-article (get-row-id)) :starred)))
   ;; show article / open folder / open subscription
   (define-key the-old-menu-mode-map (kbd "RET")
 
