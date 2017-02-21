@@ -18,18 +18,20 @@
 ;; lookup table to convert local commands to the old reader API commands
 ;; if API commands will be changed, we'll need to edit second column
 (defvar the-old-api-cmd
-  '((:userinfo      . "user-info")
-    (:token         . "token")
-    (:login         . "accounts/ClientLogin")
-    (:status        . "status")
-    (:preferences   . "preference/list")
-    (:folders       . "tag/list")
-    (:subscriptions . "subscription/list")
-    (:unread-count  . "unread-count")
-    (:item-ids      . "stream/items/ids")
-    (:items         . "stream/items/contents")
-    (:stream        . "stream/contents")
-    (:update-item   . "edit-tag")
+  '((:userinfo          . "user-info")
+    (:token             . "token")
+    (:login             . "accounts/ClientLogin")
+    (:status            . "status")
+    (:preferences       . "preference/list")
+    (:folders           . "tag/list")
+    (:subscriptions     . "subscription/list")
+    (:unread-count      . "unread-count")
+    (:item-ids          . "stream/items/ids")
+    (:items             . "stream/items/contents")
+    (:stream            . "stream/contents")
+    (:update-item       . "edit-tag")
+    (:add-subscription  . "subscription/quickadd")
+    (:edit-subscription . "subscription/edit")
     ))
 ;; lookup table to convert json fields to local names
 (defvar folder-fields
@@ -72,7 +74,13 @@
 		       (:stream-id . streamId)))
     )
   )
-
+(defvar add-subscription-response
+  '((:query       . query)
+    (:num-results . numResults)
+    (:stream-id   . streamId)
+    (:error       . error))
+  )
+  
 (defvar item-parameters
   '((:read     . "user/-/state/com.google/read")
     (:starred  . "user/-/state/com.google/starred")
@@ -172,7 +180,6 @@
 			args
 			"&"))
 	    )
-	(message "%s" url-request-data)
 	(url-retrieve-synchronously addr))
     (goto-char (point-min))
     (re-search-forward "^$")
@@ -192,7 +199,8 @@
   "generic api query"
   (json-read-from-string
    (api-get
-    (get-cmd-url cmd params))))
+    (get-cmd-url cmd
+		 params))))
 
 (defun api-get-token ()
   "get security token by usern ame and pasword"
@@ -204,19 +212,25 @@
 					   ("Passwd" . ,the-old-api-passwd)))))
     (cdr (assoc 'Auth (json-read-from-string client-login)))))
 
-;(defun api-toggle-article-read (article)
-;  "toggle an article read / unread"
-;  (let* ((article-id (article-param :id article))
-;	 (param (if (article-unread? article) '("a" . "user/-/state/com.google/read") '("r" . "user/-/state/com.google/read") )))
-;    (api-post (concat the-old-api-url (cdr (assoc :update-item the-old-api-cmd)))
-;	      `(("i" . ,article-id)
-;		,param))))
+(defun api-add-subscription (address)
+  "add subscription"
+  (let* ((subscription-result  (json-read-from-string (api-post (get-cmd-url :add-subscription (concat "&quickadd=" address)) nil)))
+	(error-msg (add-subscription-param :error subscription-result)))
+    (if error-msg error-msg "Added")))
+    
+
+(defun api-delete-subscription (article)
+  "remove subscription"
+  (let ((article-id (article-param :id article))
+	(api-post (get-cmd-url :edit-subscription)
+		  `(("ac" . "unsubscribe")
+		    ("s"  . ,article-id))))))
 
 (defun api-mark-article-parameter (article action parameter)
   "set/unset article parameter, action: a - mark / r - remove mark"
   (let* ((article-id (article-param :id article))
 	 (param (alist-get item-parameters parameter)))
-    (api-post (concat the-old-api-url (cdr (assoc :update-item the-old-api-cmd)))
+    (api-post (get-cmd-url :update-item)
 	      `(("i"     . ,article-id)
 		(,action . ,param)))))
 
@@ -292,7 +306,9 @@
 
 (defun refresh-container-items (cont)
   "refresh stream"
-  (let ((art (api-query :stream (concat "&s=" (alist-get cont 'id) "&n=256"))))
+  (let ((art (api-query :stream (concat "&s=" (alist-get cont 'id)
+					"&n=1000"
+					))))
     (setq the-old-articles (vec-to-list(alist-get art 'items)))
     (setq the-old-articles-continuation (alist-get art 'continuation))))
 
@@ -378,6 +394,10 @@
   "get subscription attribute by parameter name"
   (get-value-by-param param subscription subscription-fields))
 
+(defun add-subscription-param (param subscription-result)
+  "get adding subscription result attribute by parameter name"
+  (get-value-by-param param subscription-result add-subscription-response))
+
 (defun unread-param (param unread)
   "get unread count attribute by parameter name"
   (get-value-by-param param unread unread-fields))
@@ -387,7 +407,7 @@
   (get-value-by-param param article article-fields))
 
 (defun article-paramater-set? (article parameter)
-  "is parameter for article set?"
+  "is article parameter set?"
   (let ((categories (vec-to-list (article-param :categories article))))
     (not (null (filter (lambda (x) (string= x (alist-get item-parameters parameter))) categories)))))
 
@@ -410,6 +430,7 @@
   (define-key the-old-menu-mode-map "n" 'next-line)
   (define-key the-old-menu-mode-map "p" 'previous-line)
   (define-key the-old-menu-mode-map "i" '(lambda () (interactive) (message (get-row-id))))
+  (define-key the-old-menu-mode-map "a" '(lambda (web-addr) (interactive "sEnter the address: ") (message (api-add-subscription web-addr))))
   (define-key the-old-menu-mode-map (kbd "TAB") '(lambda () (interactive) (message "%s" (get-article (get-row-id)))))
   (define-key the-old-menu-mode-map "W" '(lambda () (interactive)
 					   (let ((addr (cdar
@@ -423,7 +444,9 @@
 							(elt
 							 (article-param :canonical (get-article (get-row-id)))
 							 0))))
-					     (browse-url addr))))
+					     (browse-url addr)
+					     (api-set-article-read (get-article (get-row-id)))
+					     )))
   (define-key the-old-menu-mode-map "m" '(lambda () (interactive)
 					   (setq the-old-current-list-function
 						 (cond
@@ -466,8 +489,6 @@
 						(api-toggle-article-parameter (get-article (get-row-id)) :starred)))
   ;; show article / open folder / open subscription
   (define-key the-old-menu-mode-map (kbd "RET")
-
-
     (lambda () (interactive)
       (let ((id (get-row-id)))
 	(cond
@@ -485,8 +506,8 @@
 	    (with-temp-buffer
 	      (insert str)
 	      (shr-render-buffer (current-buffer)))
-	    (run-at-time "0 sec" nil 'api-set-article-read article)
-	    (other-window 1)))))))
+	    (other-window 1)
+	    (run-at-time "0 sec" nil 'api-set-article-read article)))))))
   
   (define-key the-old-menu-mode-map (kbd "e") '(lambda () (interactive) 
 						 (let ((addr (cdar
@@ -699,7 +720,6 @@
     (setq buffer-read-only nil)
     (erase-buffer)
     (let*
-	;((items the-old-articles))
 	((items
 	  (if (null the-old-filter-subscription)
 	      the-old-articles
