@@ -218,13 +218,12 @@
 	(error-msg (add-subscription-param :error subscription-result)))
     (if error-msg error-msg "Added")))
     
-
-(defun api-delete-subscription (article)
+(defun api-delete-subscription (subscription)
   "remove subscription"
-  (let ((article-id (article-param :id article))
-	(api-post (get-cmd-url :edit-subscription)
-		  `(("ac" . "unsubscribe")
-		    ("s"  . ,article-id))))))
+  (let* ((subscription-id (subscription-param :id subscription)))
+    (api-post (get-cmd-url :edit-subscription)
+	      `(("ac" . "unsubscribe")
+		("s"  . ,subscription-id)))))
 
 (defun api-mark-article-parameter (article action parameter)
   "set/unset article parameter, action: a - mark / r - remove mark"
@@ -418,6 +417,17 @@
 (defun article-starred? (article)
   "is article unread?"
   (article-paramater-set? article :starred))
+
+;;
+;; Menu functions
+;;
+
+(defun menu-remove-subscription (yes)
+  (interactive
+   (list (y-or-n-p (format "Remove subscription '%s', continue? " (subscription-param :title (get-subscription (get-row-id)))))))
+  (if yes
+    (message (api-delete-subscription (get-subscription (get-row-id))))))
+
 ;;
 ;; Keybindings
 ;;
@@ -430,7 +440,8 @@
   (define-key the-old-menu-mode-map "n" 'next-line)
   (define-key the-old-menu-mode-map "p" 'previous-line)
   (define-key the-old-menu-mode-map "i" '(lambda () (interactive) (message (get-row-id))))
-  (define-key the-old-menu-mode-map "a" '(lambda (web-addr) (interactive "sEnter the address: ") (message (api-add-subscription web-addr))))
+  (define-key the-old-menu-mode-map "a" '(lambda (web-addr) (interactive "sAdd new subscription. Enter the address: ") (message (api-add-subscription web-addr))))
+  (define-key the-old-menu-mode-map (kbd "DEL") 'menu-remove-subscription)
   (define-key the-old-menu-mode-map (kbd "TAB") '(lambda () (interactive) (message "%s" (get-article (get-row-id)))))
   (define-key the-old-menu-mode-map "W" '(lambda () (interactive)
 					   (let ((addr (cdar
