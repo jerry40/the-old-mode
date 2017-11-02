@@ -527,7 +527,8 @@
 							       0))))
 						   (with-temp-buffer
 						     (insert (api-get addr))
-						     (shr-render-buffer (current-buffer)))
+						     (shr-render-buffer (current-buffer))
+						     (read-only-mode 1))
 						   (other-window 1))))
   
   ;; help
