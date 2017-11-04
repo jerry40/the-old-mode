@@ -146,6 +146,27 @@
     ("Title"        . 32))
   "An alist of (NAME . COLUMN) entries.")
 
+;; =================================================================================================
+;; interface
+;; =================================================================================================
+
+;; borrowed from elfeed-show.el (under The Unlicense)
+(defvar the-old-show-map
+  (let ((map (make-sparse-keymap)))
+    (prog1 map
+      (suppress-keymap map)	
+      (define-key map "q" '(lambda () (interactive)
+			     (kill-buffer (current-buffer))
+			     (delete-window)))
+      (define-key map (kbd "SPC") 'scroll-up-command)
+      (define-key map (kbd "DEL") 'scroll-down-command)
+      (define-key map "\t" 'shr-next-link)
+      (define-key map [tab] 'shr-next-link)
+      (define-key map "\e\t" 'shr-previous-link)
+      (define-key map [backtab] 'shr-previous-link)
+      (define-key map [mouse-2] 'shr-browse-url)))
+"Keymap for showing the-old articles")
+
 
 ;; =================================================================================================
 ;; api post / get commands
@@ -548,7 +569,8 @@
 						   (with-temp-buffer
 						     (insert (api-get addr))
 						     (shr-render-buffer (current-buffer))
-						     (read-only-mode 1)))))
+						     (read-only-mode 1)
+						     (use-local-map the-old-show-map)))))
 
   ;; help
   (define-key the-old-menu-mode-map "h" 'menu-quick-help)
