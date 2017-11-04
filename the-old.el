@@ -547,9 +547,9 @@
 							       0))))
 						   (with-temp-buffer
 						     (insert (api-get addr))
-						     (shr-render-buffer (current-buffer)))
-						   (other-window 1))))
-  
+						     (shr-render-buffer (current-buffer))
+						     (read-only-mode 1)))))
+
   ;; help
   (define-key the-old-menu-mode-map "h" 'menu-quick-help)
   ;; quit
