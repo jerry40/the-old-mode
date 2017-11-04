@@ -32,6 +32,7 @@
     (:update-item       . "edit-tag")
     (:add-subscription  . "subscription/quickadd")
     (:edit-subscription . "subscription/edit")
+    (:mark-as-read      . "mark-all-as-read")
     ))
 ;; lookup table to convert json fields to local names
 (defvar folder-fields
@@ -225,6 +226,12 @@
 	      `(("ac" . "unsubscribe")
 		("s"  . ,subscription-id)))))
 
+(defun api-mark-subscription-read (subscription)
+  "mark all items in the subscription as read"
+  (let* ((subscription-id (subscription-param :id subscription)))
+    (api-post (get-cmd-url :mark-as-read)
+	      `(("s"  . ,subscription-id)))))
+
 (defun api-mark-article-parameter (article action parameter)
   "set/unset article parameter, action: a - mark / r - remove mark"
   (let* ((article-id (article-param :id article))
@@ -307,6 +314,7 @@
   "refresh stream"
   (let ((art (api-query :stream (concat "&s=" (alist-get cont 'id)
 					"&n=1000"
+					"&xt=user/-/state/com.google/read"
 					))))
     (setq the-old-articles (vec-to-list(alist-get art 'items)))
     (setq the-old-articles-continuation (alist-get art 'continuation))))
@@ -428,6 +436,11 @@
   (if yes
     (message (api-delete-subscription (get-subscription (get-row-id))))))
 
+(defun menu-quick-help ()
+  "Menu bar - cheatsheet"
+  (interactive)
+  (message "n-ext, p-revious, TAB-mode, a-dd new subscription, DEL-remove subscription, W-copy addr, w-open in browser, R-eload data, SPC-toggle read, r-set read, u-set unread, s-toggle star, e-open article in emacs, ALT+a-clear filters, CTRL+R-mark all read, \\-item, i-row id, h-elp, q-uit"))
+
 ;;
 ;; Keybindings
 ;;
@@ -442,7 +455,7 @@
   (define-key the-old-menu-mode-map "i" '(lambda () (interactive) (message (get-row-id))))
   (define-key the-old-menu-mode-map "a" '(lambda (web-addr) (interactive "sAdd new subscription. Enter the address: ") (message (api-add-subscription web-addr))))
   (define-key the-old-menu-mode-map (kbd "DEL") 'menu-remove-subscription)
-  (define-key the-old-menu-mode-map (kbd "TAB") '(lambda () (interactive) (message "%s" (get-article (get-row-id)))))
+  (define-key the-old-menu-mode-map "\\" '(lambda () (interactive) (message "%s" (get-article (get-row-id)))))
   (define-key the-old-menu-mode-map "W" '(lambda () (interactive)
 					   (let ((addr (cdar
 							(elt
@@ -458,7 +471,7 @@
 					     (browse-url addr)
 					     (api-set-article-read (get-article (get-row-id)))
 					     )))
-  (define-key the-old-menu-mode-map "m" '(lambda () (interactive)
+  (define-key the-old-menu-mode-map (kbd "TAB") '(lambda () (interactive)
 					   (setq the-old-current-list-function
 						 (cond
 						  ((eq the-old-current-mode :folders) 'get-subscriptions-menu)
@@ -476,7 +489,15 @@
 					       (setq the-old-filter-subscription nil)
 					       (message "Filters cleared")
 					       (the-old-redraw))))
-					     
+
+  ;; mark all items in subscription read
+  (define-key the-old-menu-mode-map (kbd "C-r")
+    '(lambda () (interactive)
+       (message
+	(api-mark-subscription-read
+	 (get-subscription (get-row-id))
+	 ))))
+  
   ;; sort columns
   ;(define-key the-old-menu-mode-map "1" '(lambda () (interactive) (get-messages-menu-sort-by-column-interactively 0)))
   ;(define-key the-old-menu-mode-map "2" '(lambda () (interactive) (get-messages-menu-sort-by-column-interactively 1)))
@@ -496,7 +517,6 @@
 						  (api-set-article-unread (get-article (get-row-id)))))
   ;; toggle star
   (define-key the-old-menu-mode-map (kbd "s") (lambda () (interactive)
-;						  (api-set-article-starred (get-article (get-row-id)))))
 						(api-toggle-article-parameter (get-article (get-row-id)) :starred)))
   ;; show article / open folder / open subscription
   (define-key the-old-menu-mode-map (kbd "RET")
@@ -531,7 +551,7 @@
 						   (other-window 1))))
   
   ;; help
-  ;(define-key the-old-menu-mode-map "h" 'menu-quick-help)
+  (define-key the-old-menu-mode-map "h" 'menu-quick-help)
   ;; quit
   (define-key the-old-menu-mode-map "q" 'quit-window))
 
@@ -898,13 +918,20 @@
   "Display a list of folders."
   (interactive)
   ;(unless filter-preset-current (filter-preset-parse-and-set 0)) ;; set filter for first time
-  (unless the-old-api-token (setq the-old-api-token (api-get-token)))
+  (unless the-old-api-token
+    (progn
+      (unless the-old-api-passwd (setq the-old-api-passwd (read-passwd "Password:")))
+      (setq the-old-api-token (api-get-token))
+      (kill-new the-old-api-token)
+      ;;(message the-old-api-token)  
+      ))
   (refresh-structure)
   (refresh-container-items (get-subscription "s=user/-/state/com.google/reading-list")) ;;"feed/573c0b8dc70bc2551d0004c1"))
   (let ((p (point)))
     ;(get-subscriptions-menu)
     (funcall the-old-current-list-function)
-    (goto-char p)))
+    (goto-char p))
+  )
 
 (defun the-old-redraw ()
   "Display a list of folders."
