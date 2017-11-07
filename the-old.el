@@ -35,10 +35,10 @@
     (:mark-as-read      . "mark-all-as-read")
     ))
 ;; lookup table to convert json fields to local names
-(defvar folder-fields
+(defvar the-old-folder-fields
   '((:id            . id)
     (:sortid        . sortid)))
-(defvar subscription-fields
+(defvar the-old-subscription-fields
   '((:icon-url      . iconUrl)
     (:html-url      . htmlUrl)
     (:url           . url)
@@ -47,11 +47,11 @@
     (:categories    . categories)
     (:title         . title)
     (:id            . id)))
-(defvar unread-fields
+(defvar the-old-unread-fields
   '((:timestamp     . newestItemTimestampUsec)
     (:count         . count)
     (:id            . id)))
-(defvar article-fields
+(defvar the-old-article-fields
   '((:crawl-time    . crawlTimeMsec)
     (:timestamp     . timestampUsec)
     (:id            . id)
@@ -75,14 +75,14 @@
 		       (:stream-id . streamId)))
     )
   )
-(defvar add-subscription-response
+(defvar the-old-add-subscription-response
   '((:query       . query)
     (:num-results . numResults)
     (:stream-id   . streamId)
     (:error       . error))
   )
   
-(defvar item-parameters
+(defvar the-old-item-parameters
   '((:read     . "user/-/state/com.google/read")
     (:starred  . "user/-/state/com.google/starred")
     (:shared   . "user/-/state/com.google/broadcast")
@@ -114,33 +114,33 @@
 
 ;; function to show list of current entities
 (defvar the-old-current-list-function
-  'get-subscriptions-menu)
+  'the-old-get-subscriptions-menu)
 
 ;; =================================================================================================
 ;; menu 
 ;; =================================================================================================
 
-(defvar get-messages-menu-mode-hook nil
+(defvar the-old-get-messages-menu-mode-hook nil
   "Hooks to run after get-messages menu init.")
 
-(defvar get-messages-menu-mode-map nil
+(defvar the-old-get-messages-menu-mode-map nil
   "Keymap for get-messages-menu-mode")
 
-(defvar get-messages-menu-sort-key nil
+(defvar the-old-get-messages-menu-sort-key nil
   "sort packages by key")
 
 ;; folders view columns start positions
-(defconst menu-folder-columns
+(defconst the-old-menu-folder-columns
   '(("Date"         . 1)
     ("Name"         . 24)
     ("Unread"       . 100))
   "An alist of (NAME . COLUMN) entries.")
-(defconst menu-subscription-columns
+(defconst the-old-menu-subscription-columns
   '(("Date"         . 1)
     ("Title"        . 32)
     ("Unread"       . 100))
   "An alist of (NAME . COLUMN) entries.")
-(defconst menu-article-columns
+(defconst the-old-menu-article-columns
   '(("Date"         . 1)
     ("Subscription" . 8)
     ("Title"        . 32))
@@ -173,7 +173,7 @@
 ;; =================================================================================================
 
 ;; get api rest url by command name (see the-old-api-cmd alist for details)
-(defun get-cmd-url (cmd &optional params)
+(defun the-old-get-cmd-url (cmd &optional params)
   "Construct api url from command symbol and additional parameters"
   (let ((the-old-api-cmd-part (cdr (assoc cmd the-old-api-cmd))))
     (concat
@@ -187,7 +187,7 @@
      params
      )))
 
-(defun api-ask (query-type addr &optional args)
+(defun the-old-api-ask (query-type addr &optional args)
   "query-type = POST/GET, addr = web address, args = arguments (body of POST)"
   (with-current-buffer
       (let ((url-request-method query-type)
@@ -209,106 +209,106 @@
     (decode-coding-string (buffer-string) 'utf-8)))
 
 
-(defun api-get (addr)
+(defun the-old-api-get (addr)
   "GET from address"
-  (api-ask "GET" addr))
+  (the-old-api-ask "GET" addr))
 
-(defun api-post (addr args)
+(defun the-old-api-post (addr args)
   "POST args to address"
-  (api-ask "POST" addr args))
+  (the-old-api-ask "POST" addr args))
 
-(defun api-query (cmd &optional params)
+(defun the-old-api-query (cmd &optional params)
   "generic api query"
   (json-read-from-string
-   (api-get
-    (get-cmd-url cmd
+   (the-old-api-get
+    (the-old-get-cmd-url cmd
 		 params))))
 
-(defun api-get-token ()
+(defun the-old-api-get-token ()
   "get security token by usern ame and pasword"
   (let ((client-login
-	 (api-post the-old-api-login-url `(("client" . "the-old-emacs")
+	 (the-old-api-post the-old-api-login-url `(("client" . "the-old-emacs")
 					   ("accountType" . "HOSTED_OR_GOOGLE")
 					   ("service" . "reader")
 					   ("Email" . ,the-old-api-login)
 					   ("Passwd" . ,the-old-api-passwd)))))
     (cdr (assoc 'Auth (json-read-from-string client-login)))))
 
-(defun api-add-subscription (address)
+(defun the-old-api-add-subscription (address)
   "add subscription"
-  (let* ((subscription-result  (json-read-from-string (api-post (get-cmd-url :add-subscription (concat "&quickadd=" address)) nil)))
-	(error-msg (add-subscription-param :error subscription-result)))
+  (let* ((subscription-result  (json-read-from-string (the-old-api-post (the-old-get-cmd-url :add-subscription (concat "&quickadd=" address)) nil)))
+	(error-msg (the-old-add-subscription-param :error subscription-result)))
     (if error-msg error-msg "Added")))
     
-(defun api-delete-subscription (subscription)
+(defun the-old-api-delete-subscription (subscription)
   "remove subscription"
-  (let* ((subscription-id (subscription-param :id subscription)))
-    (api-post (get-cmd-url :edit-subscription)
+  (let* ((subscription-id (the-old-subscription-param :id subscription)))
+    (the-old-api-post (the-old-get-cmd-url :edit-subscription)
 	      `(("ac" . "unsubscribe")
 		("s"  . ,subscription-id)))))
 
-(defun api-mark-subscription-read (subscription)
+(defun the-old-api-mark-subscription-read (subscription)
   "mark all items in the subscription as read"
-  (let* ((subscription-id (subscription-param :id subscription)))
-    (api-post (get-cmd-url :mark-as-read)
+  (let* ((subscription-id (the-old-subscription-param :id subscription)))
+    (the-old-api-post (the-old-get-cmd-url :mark-as-read)
 	      `(("s"  . ,subscription-id)))))
 
-(defun api-mark-article-parameter (article action parameter)
+(defun the-old-api-mark-the-old-article-parameter (article action parameter)
   "set/unset article parameter, action: a - mark / r - remove mark"
-  (let* ((article-id (article-param :id article))
-	 (param (alist-get item-parameters parameter)))
-    (api-post (get-cmd-url :update-item)
+  (let* ((article-id (the-old-article-param :id article))
+	 (param (alist-get the-old-item-parameters parameter)))
+    (the-old-api-post (the-old-get-cmd-url :update-item)
 	      `(("i"     . ,article-id)
 		(,action . ,param)))))
 
-(defun api-mark-article (article parameter)
+(defun the-old-api-mark-article (article parameter)
   "mark article with parameter"
-  (api-mark-article-parameter article "a" parameter))
+  (the-old-api-mark-the-old-article-parameter article "a" parameter))
 
-(defun api-unmark-article (article parameter)
+(defun the-old-api-unmark-article (article parameter)
   "remove article mark"
-  (api-mark-article-parameter article "r" parameter))
+  (the-old-api-mark-the-old-article-parameter article "r" parameter))
 
-(defun api-toggle-article-parameter (article parameter)
+(defun the-old-api-toggle-article-parameter (article parameter)
   "toggle article parameter"
-  (funcall (if (article-paramater-set? article parameter) 'api-unmark-article 'api-mark-article) article parameter))
+  (funcall (if (the-old-article-paramater-set? article parameter) 'the-old-api-unmark-article 'the-old-api-mark-article) article parameter))
 
-(defun api-set-article-read (article)
+(defun the-old-api-set-article-read (article)
   "set article read"
-  (when (article-unread? article) (api-mark-article article :read)))
+  (when (the-old-article-unread? article) (the-old-api-mark-article article :read)))
 
-(defun api-set-article-unread (article)
+(defun the-old-api-set-article-unread? (article)
   "set article unread"
-  (unless (article-unread? article) (api-unmark-article article :read)))
+  (unless (the-old-article-unread? article) (the-old-api-unmark-article article :read)))
 
-(defun api-set-article-starred (article)
+(defun the-old-api-set-article-starred (article)
   "set article starred"
-  (when (article-starred? article) (api-mark-article article :starred)))
+  (when (the-old-article-starred? article) (the-old-api-mark-article article :starred)))
 
-(defun api-set-article-unstarred (article)
+(defun the-old-api-set-article-unstarred (article)
   "set article unstarred"
-  (unless (article-starred? article) (api-unmark-article article :starred)))
+  (unless (the-old-article-starred? article) (the-old-api-unmark-article article :starred)))
 
 ;; =================================================================================================
 ;; helpers
 ;; =================================================================================================
-(defun filter (f col)
+(defun the-old-filter (f col)
   "classical filter function"
   (remove-if-not f col))
 
-(defun alist-get (lst key)
+(defun the-old-alist-get (lst key)
   "plist-get for alist"
   (cdr (assoc key lst)))
 
-(defun alist-set (lst key item)
+(defun the-old-alist-set (lst key item)
   (if (null (assoc key lst))
       (append lst (list (cons :id key) (cons :item (list item))))))
 
-(defun vec-to-list (vec)
+(defun the-old-vec-to-list (vec)
   "convert vector to list"
   (append vec nil))
 
-(defun date-diff (sec)
+(defun the-old-date-diff (sec)
   "Convert date diference in seconds to human readable format"
   (cond
    ((< sec 0) "never")
@@ -321,146 +321,146 @@
 ;; =================================================================================================
 ;; retrieve subscriptions structure
 ;; =================================================================================================
-(defun refresh-structure ()
+(defun the-old-refresh-structure ()
   "refresh folders and subscriptions structure"
-  (let ((folders (vec-to-list (alist-get (api-query :folders) 'tags)))
-	(subscriptions (vec-to-list (alist-get (api-query :subscriptions) 'subscriptions)))
-	(unread (vec-to-list (alist-get (api-query :unread-count) 'unreadcounts))))
+  (let ((folders (the-old-vec-to-list (the-old-alist-get (the-old-api-query :folders) 'tags)))
+	(subscriptions (the-old-vec-to-list (the-old-alist-get (the-old-api-query :subscriptions) 'subscriptions)))
+	(unread (the-old-vec-to-list (the-old-alist-get (the-old-api-query :unread-count) 'unreadcounts))))
     (setq the-old-folders folders)
     (setq the-old-subscriptions subscriptions)
     (setq the-old-unread unread)
     ))
 
-(defun refresh-container-items (cont)
+(defun the-old-refresh-container-items (cont)
   "refresh stream"
-  (let ((art (api-query :stream (concat "&s=" (alist-get cont 'id)
+  (let ((art (the-old-api-query :stream (concat "&s=" (the-old-alist-get cont 'id)
 					"&n=1000"
 					"&xt=user/-/state/com.google/read"
 					))))
-    (setq the-old-articles (vec-to-list(alist-get art 'items)))
-    (setq the-old-articles-continuation (alist-get art 'continuation))))
+    (setq the-old-articles (the-old-vec-to-list(the-old-alist-get art 'items)))
+    (setq the-old-articles-continuation (the-old-alist-get art 'continuation))))
 
 
 ;; =================================================================================================
 ;; api objects parsing
 ;; =================================================================================================
 
-(defun get-obj-by-id (id a-list)
+(defun the-old-get-obj-by-id (id a-list)
   "get alist from a list of alists by 'id field"
   (let ((res
-	 (filter
+	 (the-old-filter
 	  (lambda (f)
-	    (string= id (alist-get f 'id)))
+	    (string= id (the-old-alist-get f 'id)))
 	  a-list)))
     (if (null res)
 	res
       (car res))))
 
-(defun get-folder (id)
+(defun the-old-get-folder (id)
   "get folder by id"
-  (get-obj-by-id id the-old-folders))
+  (the-old-get-obj-by-id id the-old-folders))
      
-(defun get-subscription (id)
+(defun the-old-get-subscription (id)
   "get subscription by id"
-  (get-obj-by-id id the-old-subscriptions))
+  (the-old-get-obj-by-id id the-old-subscriptions))
 
-(defun get-article (id)
+(defun the-old-get-article (id)
   "get article by id"
-  (get-obj-by-id id the-old-articles))
+  (the-old-get-obj-by-id id the-old-articles))
 
-(defun get-subscriptions-by-folder (folder)
+(defun the-old-get-subscriptions-by-folder (folder)
   "get subscriptions by folder"
-  (let ((folder-id (folder-param :id folder)))
-    (get-subscriptions-by-folder-id folder-id)))
+  (let ((folder-id (the-old-folder-param :id folder)))
+    (the-old-get-subscriptions-by-folder-id folder-id)))
 
-(defun get-subscriptions-by-folder-id (folder-id)
+(defun the-old-get-subscriptions-by-folder-id (folder-id)
   "get subscriptions by folder id"
-  (filter (lambda (s)
+  (the-old-filter (lambda (s)
 	    (not (null
-		  (get-obj-by-id
+		  (the-old-get-obj-by-id
 		   folder-id
-		   (vec-to-list (subscription-param :categories s))))))
+		   (the-old-vec-to-list (the-old-subscription-param :categories s))))))
 	  the-old-subscriptions))
 
-(defun get-unread-by-container (cont)
+(defun the-old-get-unread-by-container (cont)
   "get unread count for particular folder or subscription"
-  (let ((f-id (folder-param :id cont)))
-    (get-obj-by-id f-id the-old-unread)))
+  (let ((f-id (the-old-folder-param :id cont)))
+    (the-old-get-obj-by-id f-id the-old-unread)))
   
 ;(defun get-value-by-param (param a-list param-dict)
-;  "get value of alist by parameter name (it decoded by param-dict, see subscription-fields for example)"
+;  "get value of alist by parameter name (it decoded by param-dict, see the-old-subscription-fields for example)"
 ;  (let ((field (cdr (assoc param param-dict))))
 ;    (cdr (assoc field a-list))))
 
-(defun get-value-by-param (param a-list param-dict)
-  "get value of alist by parameter name recursively (it decoded by param-dict, see subscription-fields for example)"
+(defun the-old-get-value-by-param (param a-list param-dict)
+  "get value of alist by parameter name recursively (it decoded by param-dict, see the-old-subscription-fields for example)"
   (if-let ((p (caar param-dict))
 	   (p-val (cdar param-dict)))
       (cond
        ((null param-dict) nil)
        ((listp p-val)
-	(let ((ret (get-value-by-param param (cdr (assoc (car p-val) a-list)) (cdr p-val))))
+	(let ((ret (the-old-get-value-by-param param (cdr (assoc (car p-val) a-list)) (cdr p-val))))
 	  (if (null ret)
-	      (get-value-by-param param a-list (cdr param-dict))
+	      (the-old-get-value-by-param param a-list (cdr param-dict))
 	    ret)))
        ((equal p param) (cdr (assoc p-val a-list)))
-       (t (get-value-by-param param a-list (cdr param-dict)))
+       (t (the-old-get-value-by-param param a-list (cdr param-dict)))
        )
     )
   )
 
-;(get-value-by-param- :id (get-article "tag:google.com,2005:reader/item/5753ddee5f45b74522000339") article-fields)
-;(alist-get (alist-get (get-article "tag:google.com,2005:reader/item/5753ddee5f45b74522000339") 'summary) 'content)
-;(cdr (assoc 'summary (get-article "tag:google.com,2005:reader/item/5753ddee5f45b74522000339")))
+;(the-old-get-value-by-param- :id (the-old-get-article "tag:google.com,2005:reader/item/5753ddee5f45b74522000339") the-old-article-fields)
+;(the-old-alist-get (the-old-alist-get (the-old-get-article "tag:google.com,2005:reader/item/5753ddee5f45b74522000339") 'summary) 'content)
+;(cdr (assoc 'summary (the-old-get-article "tag:google.com,2005:reader/item/5753ddee5f45b74522000339")))
 
 
-(defun folder-param (param folder)
+(defun the-old-folder-param (param folder)
   "get folder attribute by parameter name"
-  (get-value-by-param param folder folder-fields))
+  (the-old-get-value-by-param param folder the-old-folder-fields))
   
-(defun subscription-param (param subscription)
+(defun the-old-subscription-param (param subscription)
   "get subscription attribute by parameter name"
-  (get-value-by-param param subscription subscription-fields))
+  (the-old-get-value-by-param param subscription the-old-subscription-fields))
 
-(defun add-subscription-param (param subscription-result)
+(defun the-old-add-subscription-param (param subscription-result)
   "get adding subscription result attribute by parameter name"
-  (get-value-by-param param subscription-result add-subscription-response))
+  (the-old-get-value-by-param param subscription-result the-old-add-subscription-response))
 
-(defun unread-param (param unread)
+(defun the-old-unread-param (param unread)
   "get unread count attribute by parameter name"
-  (get-value-by-param param unread unread-fields))
+  (the-old-get-value-by-param param unread the-old-unread-fields))
 
-(defun article-param (param article)
+(defun the-old-article-param (param article)
   "get article attribute by parameter name"
-  (get-value-by-param param article article-fields))
+  (the-old-get-value-by-param param article the-old-article-fields))
 
-(defun article-paramater-set? (article parameter)
+(defun the-old-article-paramater-set? (article parameter)
   "is article parameter set?"
-  (let ((categories (vec-to-list (article-param :categories article))))
-    (not (null (filter (lambda (x) (string= x (alist-get item-parameters parameter))) categories)))))
+  (let ((categories (the-old-vec-to-list (the-old-article-param :categories article))))
+    (not (null (the-old-filter (lambda (x) (string= x (the-old-alist-get the-old-item-parameters parameter))) categories)))))
 
-(defun article-unread? (article)
+(defun the-old-article-unread? (article)
   "is article unread?"
-  (not (article-paramater-set? article :read)))
+  (not (the-old-article-paramater-set? article :read)))
 
-(defun article-starred? (article)
+(defun the-old-article-starred? (article)
   "is article unread?"
-  (article-paramater-set? article :starred))
+  (the-old-article-paramater-set? article :starred))
 
 ;;
 ;; Menu functions
 ;;
 
-(defun menu-remove-subscription (yes)
+(defun the-old-menu-remove-subscription (yes)
   (interactive
-   (list (y-or-n-p (format "Remove subscription '%s', continue? " (subscription-param :title (get-subscription (get-row-id)))))))
+   (list (y-or-n-p (format "Remove subscription '%s', continue? " (the-old-subscription-param :title (the-old-get-subscription (the-old-get-row-id)))))))
   (if yes
-    (message (api-delete-subscription (get-subscription (get-row-id))))))
+    (message (the-old-api-delete-subscription (the-old-get-subscription (the-old-get-row-id))))))
 
-(defun menu-quick-help ()
+(defun the-old-menu-quick-help ()
   "Menu bar - cheatsheet"
   (interactive)
-  (message "n-ext, p-revious, TAB-mode, a-dd new subscription, DEL-remove subscription, W-copy addr, w-open in browser, R-eload data, SPC-toggle read, r-set read, u-set unread, s-toggle star, e-open article in emacs, ALT+a-clear filters, CTRL+R-mark all read, \\-item, i-row id, h-elp, q-uit"))
+  (message "n-ext, p-revious, TAB-mode, a-dd new subscription, DEL-remove subscription, W-copy addr, w-open in browser, R-eload data, SPC-toggle read, r-set read, u-set unread, s-toggle star, e-open article in emacs, ALT+a-clear the-old-filters, CTRL+R-mark all read, \\-item, i-row id, h-elp, q-uit"))
 
 ;;
 ;; Keybindings
@@ -473,31 +473,31 @@
   ;;
   (define-key the-old-menu-mode-map "n" 'next-line)
   (define-key the-old-menu-mode-map "p" 'previous-line)
-  (define-key the-old-menu-mode-map "i" '(lambda () (interactive) (message (get-row-id))))
-  (define-key the-old-menu-mode-map "a" '(lambda (web-addr) (interactive "sAdd new subscription. Enter the address: ") (message (api-add-subscription web-addr))))
-  (define-key the-old-menu-mode-map (kbd "DEL") 'menu-remove-subscription)
-  (define-key the-old-menu-mode-map "\\" '(lambda () (interactive) (message "%s" (get-article (get-row-id)))))
+  (define-key the-old-menu-mode-map "i" '(lambda () (interactive) (message (the-old-get-row-id))))
+  (define-key the-old-menu-mode-map "a" '(lambda (web-addr) (interactive "sAdd new subscription. Enter the address: ") (message (the-old-api-add-subscription web-addr))))
+  (define-key the-old-menu-mode-map (kbd "DEL") 'the-old-menu-remove-subscription)
+  (define-key the-old-menu-mode-map "\\" '(lambda () (interactive) (message "%s" (the-old-get-article (the-old-get-row-id)))))
   (define-key the-old-menu-mode-map "W" '(lambda () (interactive)
 					   (let ((addr (cdar
 							(elt
-							 (article-param :canonical (get-article (get-row-id)))
+							 (the-old-article-param :canonical (the-old-get-article (the-old-get-row-id)))
 							 0))))
 					     (kill-new addr)
 					     (message addr))))
   (define-key the-old-menu-mode-map "w" '(lambda () (interactive)
 					   (let ((addr (cdar
 							(elt
-							 (article-param :canonical (get-article (get-row-id)))
+							 (the-old-article-param :canonical (the-old-get-article (the-old-get-row-id)))
 							 0))))
 					     (browse-url addr)
-					     (api-set-article-read (get-article (get-row-id)))
+					     (the-old-api-set-article-read (the-old-get-article (the-old-get-row-id)))
 					     )))
   (define-key the-old-menu-mode-map (kbd "TAB") '(lambda () (interactive)
 					   (setq the-old-current-list-function
 						 (cond
-						  ((eq the-old-current-mode :folders) 'get-subscriptions-menu)
-						  ((eq the-old-current-mode :subscriptions) 'get-articles-menu)
-						  ((eq the-old-current-mode :articles) 'get-folders-menu)))
+						  ((eq the-old-current-mode :folders) 'the-old-get-subscriptions-menu)
+						  ((eq the-old-current-mode :subscriptions) 'the-old-get-articles-menu)
+						  ((eq the-old-current-mode :articles) 'the-old-get-folders-menu)))
 					   (the-old-redraw)
 					   ))
   ;; refresh (get all data)
@@ -508,15 +508,15 @@
 					     (progn
 					       (setq the-old-filter-folder nil)
 					       (setq the-old-filter-subscription nil)
-					       (message "Filters cleared")
+					       (message "The-Old-Filters cleared")
 					       (the-old-redraw))))
 
   ;; mark all items in subscription read
   (define-key the-old-menu-mode-map (kbd "C-r")
     '(lambda () (interactive)
        (message
-	(api-mark-subscription-read
-	 (get-subscription (get-row-id))
+	(the-old-api-mark-subscription-read
+	 (the-old-get-subscription (the-old-get-row-id))
 	 ))))
   
   ;; sort columns
@@ -529,58 +529,58 @@
   ;(define-key the-old-menu-mode-map "7" '(lambda () (interactive) (get-messages-menu-sort-by-column-interactively 6)))
   ;; toggle read/unread
   (define-key the-old-menu-mode-map (kbd "SPC") (lambda () (interactive)
-						  (api-toggle-article-parameter (get-article (get-row-id)) :read)))
+						  (the-old-api-toggle-article-parameter (the-old-get-article (the-old-get-row-id)) :read)))
   ;; set item read
   (define-key the-old-menu-mode-map (kbd "r") (lambda () (interactive)
-						  (api-set-article-read (get-article (get-row-id)))))
+						  (the-old-api-set-article-read (the-old-get-article (the-old-get-row-id)))))
   ;; set item unread
   (define-key the-old-menu-mode-map (kbd "u") (lambda () (interactive)
-						  (api-set-article-unread (get-article (get-row-id)))))
+						  (the-old-api-set-article-unread? (the-old-get-article (the-old-get-row-id)))))
   ;; toggle star
   (define-key the-old-menu-mode-map (kbd "s") (lambda () (interactive)
-						(api-toggle-article-parameter (get-article (get-row-id)) :starred)))
+						(the-old-api-toggle-article-parameter (the-old-get-article (the-old-get-row-id)) :starred)))
   ;; show article / open folder / open subscription
   (define-key the-old-menu-mode-map (kbd "RET")
     (lambda () (interactive)
-      (let ((id (get-row-id)))
+      (let ((id (the-old-get-row-id)))
 	(cond
 	 ((eq the-old-current-mode :folders) (progn
-					       (setq the-old-current-list-function 'get-subscriptions-menu)
+					       (setq the-old-current-list-function 'the-old-get-subscriptions-menu)
 					       (setq the-old-filter-folder id)
 					       (the-old-redraw)))					       
 	 ((eq the-old-current-mode :subscriptions) (progn
-						     (setq the-old-current-list-function 'get-articles-menu)
+						     (setq the-old-current-list-function 'the-old-get-articles-menu)
 						     (setq the-old-filter-subscription id)
 						     (the-old-redraw)))
 	 (t
-	  (letrec ((article (get-article (get-row-id)))
-		   (str (article-param :content article)))
+	  (letrec ((article (the-old-get-article (the-old-get-row-id)))
+		   (str (the-old-article-param :content article)))
 	    (with-temp-buffer
 	      (insert str)
 	      (shr-render-buffer (current-buffer)))
 	    (other-window 1)
-	    (run-at-time "0 sec" nil 'api-set-article-read article)))))))
+	    (run-at-time "0 sec" nil 'the-old-api-set-article-read article)))))))
   
   (define-key the-old-menu-mode-map (kbd "e") '(lambda () (interactive) 
 						 (let ((addr (cdar
 							      (elt
-							       (article-param :canonical (get-article (get-row-id)))
+							       (the-old-article-param :canonical (the-old-get-article (the-old-get-row-id)))
 							       0))))
 						   (with-temp-buffer
-						     (insert (api-get addr))
+						     (insert (the-old-api-get addr))
 						     (shr-render-buffer (current-buffer))
 						     (read-only-mode 1)
 						     (use-local-map the-old-show-map)))))
 
   ;; help
-  (define-key the-old-menu-mode-map "h" 'menu-quick-help)
+  (define-key the-old-menu-mode-map "h" 'the-old-menu-quick-help)
   ;; quit
   (define-key the-old-menu-mode-map "q" 'quit-window))
 
 ;;
 ;; Here are functions to parse rows on the screen in order to get their IDs, for instance
 ;;
-(defun get-row-id ()
+(defun the-old-get-row-id ()
   "Get ID of active row in the table"
   (save-excursion
     (beginning-of-line)
@@ -596,15 +596,15 @@
 ;;
 ;; Part of code that print rows at main table
 ;;
-(defun menu-folder-row (folder)
+(defun the-old-menu-folder-row (folder)
   "Prepare folder to show at main table"
-  (let* ((id (folder-param :id folder))
-	 (name (folder-param :id folder))
-	 (unread (get-unread-by-container folder))
-	 (count (if (null unread) 0 (unread-param :count unread)))
-	 (timestamp (if (null unread) (floor (+ 100 (time-to-seconds (current-time)))) (/ (string-to-number (unread-param :timestamp unread)) 1000000)))
+  (let* ((id (the-old-folder-param :id folder))
+	 (name (the-old-folder-param :id folder))
+	 (unread (the-old-get-unread-by-container folder))
+	 (count (if (null unread) 0 (the-old-unread-param :count unread)))
+	 (timestamp (if (null unread) (floor (+ 100 (time-to-seconds (current-time)))) (/ (string-to-number (the-old-unread-param :timestamp unread)) 1000000)))
 	 ;(date (if (null unread) "" (format-time-string "%F %T" (seconds-to-time timestamp)))))
-	 (date (date-diff (- (floor (time-to-seconds (current-time))) timestamp))))
+	 (date (the-old-date-diff (- (floor (time-to-seconds (current-time))) timestamp))))
     (let ((face (cond
 		 ((> count 0) 'font-lock-comment-face)
 		 (t 'default))))
@@ -612,28 +612,28 @@
       (indent-to 1 1)
       (insert (propertize (concat id "\t") 'invisible t))
       ; date
-      (indent-to (alist-get menu-folder-columns "Date") 2)
+      (indent-to (the-old-alist-get the-old-menu-folder-columns "Date") 2)
       (insert (propertize date 'font-lock-face face))
       ; name
-      (indent-to (alist-get menu-folder-columns "Name") 2)
+      (indent-to (the-old-alist-get the-old-menu-folder-columns "Name") 2)
       (insert (propertize name 'font-lock-face face))
       ; unread count
-      (indent-to (alist-get menu-folder-columns "Unread") 2)
+      (indent-to (the-old-alist-get the-old-menu-folder-columns "Unread") 2)
       (insert (propertize (format "%9s" count) 'font-lock-face face))
       (insert "\n")
       )))
 
-(defun menu-subscription-row (subscription)
+(defun the-old-menu-subscription-row (subscription)
   "Prepare subscription to show at main table"
-  (let* ((id (subscription-param :id subscription))
-	 (title (subscription-param :title subscription))
-	 (unread (get-unread-by-container subscription))
-	 (count (if (null unread) 0 (unread-param :count unread)))
-	 ;(timestamp (/ (string-to-number (subscription-param :timestamp subscription)) 1000000))
+  (let* ((id (the-old-subscription-param :id subscription))
+	 (title (the-old-subscription-param :title subscription))
+	 (unread (the-old-get-unread-by-container subscription))
+	 (count (if (null unread) 0 (the-old-unread-param :count unread)))
+	 ;(timestamp (/ (string-to-number (the-old-subscription-param :timestamp subscription)) 1000000))
 	 ;(date (format-time-string "%F %T" (seconds-to-time timestamp)))
-	 (timestamp (if (null unread) (floor (+ 100 (time-to-seconds (current-time)))) (/ (string-to-number (unread-param :timestamp unread)) 1000000)))
+	 (timestamp (if (null unread) (floor (+ 100 (time-to-seconds (current-time)))) (/ (string-to-number (the-old-unread-param :timestamp unread)) 1000000)))
 	 ;(date (if (null unread) "" (format-time-string "%F %T" (seconds-to-time timestamp)))))
-    	 (date (date-diff (- (floor (time-to-seconds (current-time))) timestamp))))
+    	 (date (the-old-date-diff (- (floor (time-to-seconds (current-time))) timestamp))))
     (let ((face (cond
 		((= count 0) 'font-lock-comment-face)
 		(t 'default))))
@@ -641,53 +641,53 @@
       (indent-to 1 1)
       (insert (propertize (concat id "\t") 'invisible t))
       ; date
-      (indent-to (alist-get menu-subscription-columns "Date") 2)
+      (indent-to (the-old-alist-get the-old-menu-subscription-columns "Date") 2)
       (insert (propertize date 'font-lock-face face))
       ; name
-      (indent-to (alist-get menu-subscription-columns "Title") 2)
+      (indent-to (the-old-alist-get the-old-menu-subscription-columns "Title") 2)
       (insert (propertize title 'font-lock-face face))
       ; unread count
-      (indent-to (alist-get menu-subscription-columns "Unread") 2)
+      (indent-to (the-old-alist-get the-old-menu-subscription-columns "Unread") 2)
       (insert (propertize (format "%9s" count) 'font-lock-face face))
       (insert "\n")
       )))
 
-(defun menu-article-row (article)
+(defun the-old-menu-article-row (article)
   "Prepare article to show at main table"
-  (let* ((id (article-param :id article))
-	 (title (article-param :title article))
+  (let* ((id (the-old-article-param :id article))
+	 (title (the-old-article-param :title article))
 	 (origin-title
-	  (let ((ot (article-param :origin-title article)))
+	  (let ((ot (the-old-article-param :origin-title article)))
 	    (substring ot 0
 		       (min
 			(length ot)
-			(- (alist-get menu-article-columns "Title") (alist-get menu-article-columns "Subscription") 2)))))
-	 (timestamp (article-param :published article))
+			(- (the-old-alist-get the-old-menu-article-columns "Title") (the-old-alist-get the-old-menu-article-columns "Subscription") 2)))))
+	 (timestamp (the-old-article-param :published article))
 	 ;(date (format-time-string "%F %T" (seconds-to-time timestamp)))
-	 (date (date-diff (- (floor (time-to-seconds (current-time))) timestamp)))
+	 (date (the-old-date-diff (- (floor (time-to-seconds (current-time))) timestamp)))
 	 (face (cond
-		((not (article-unread? article)) 'font-lock-comment-face)
+		((not (the-old-article-unread? article)) 'font-lock-comment-face)
 		(t 'default)))
 	 )
       ; id (hidden)
       (indent-to 1 1)
       (insert (propertize (concat id "\t") 'invisible t))
       ; date
-      (indent-to (alist-get menu-article-columns "Date") 2)
+      (indent-to (the-old-alist-get the-old-menu-article-columns "Date") 2)
       (insert (propertize date 'font-lock-face face))
       ; subscription title
-      (indent-to (alist-get menu-article-columns "Subscription") 2)
+      (indent-to (the-old-alist-get the-old-menu-article-columns "Subscription") 2)
       (insert (propertize origin-title 'font-lock-face face))      
       ; name
-      (indent-to (alist-get menu-article-columns "Title") 2)
+      (indent-to (the-old-alist-get the-old-menu-article-columns "Title") 2)
       (insert (propertize title 'font-lock-face face))
       ; unread count
-      ;(indent-to (alist-get menu-article-columns "Unread") 2)
+      ;(indent-to (the-old-alist-get the-old-menu-article-columns "Unread") 2)
       ;(insert (propertize (format "%9s" count) 'font-lock-face face))
       (insert "\n")
       ))
 
-(defun get-list-folders ()
+(defun the-old-get-list-folders ()
   "Get folders and print them into table"
   (setq the-old-current-mode :folders)
   (with-current-buffer (get-buffer-create the-old-buffer)
@@ -695,17 +695,17 @@
     (erase-buffer)
     (let* ((items the-old-folders))
       (let ((selector (cond	       
-		       ((string= get-messages-menu-sort-key "Date")
+		       ((string= the-old-get-messages-menu-sort-key "Date")
 			#'(lambda (item) 
-			    (folder-param :timestamp item)))
-		       ((string= get-messages-menu-sort-key "Title")
+			    (the-old-folder-param :timestamp item)))
+		       ((string= the-old-get-messages-menu-sort-key "Title")
 			#'(lambda (item) 
-			    (folder-param :id item)))
-		       ((string= get-messages-menu-sort-key "Unread")
+			    (the-old-folder-param :id item)))
+		       ((string= the-old-get-messages-menu-sort-key "Unread")
 			#'(lambda (item)
 			    0)))))
-;			    (let* ((unread (get-unread-by-container item))
-;				   (count (if (null unread) 0 (unread-param :count unread))))
+;			    (let* ((unread (the-old-get-unread-by-container item))
+;				   (count (if (null unread) 0 (the-old-unread-param :count unread))))
 ;			      count))))))
 ;	(setq items
 ;	      (sort items
@@ -714,7 +714,7 @@
 ;			    (vright (funcall selector right)))
 ;			(string< vleft vright)))))
 	(mapc (lambda (item)
-		(menu-folder-row item))
+		(the-old-menu-folder-row item))
 	      items)))
     ;; remove empty line at the end
     (let ((beg (point)))
@@ -724,7 +724,7 @@
     (goto-char (point-min))
     (current-buffer)))
 
-(defun get-list-subscriptions ()
+(defun the-old-get-list-subscriptions ()
   "Get subscriptions and print them into table"
   (setq the-old-current-mode :subscriptions)
   (with-current-buffer (get-buffer-create the-old-buffer)
@@ -735,19 +735,19 @@
 	((items
 	  (if (null the-old-filter-folder)
 	      the-old-subscriptions
-	    (get-subscriptions-by-folder (get-folder the-old-filter-folder)))))
+	    (the-old-get-subscriptions-by-folder (the-old-get-folder the-old-filter-folder)))))
       (let ((selector (cond	       
-		       ((string= get-messages-menu-sort-key "Date")
+		       ((string= the-old-get-messages-menu-sort-key "Date")
 			#'(lambda (item) 0))
-	;		    (folder-param :timestamp item)))
-		       ((string= get-messages-menu-sort-key "Title")
+	;		    (the-old-folder-param :timestamp item)))
+		       ((string= the-old-get-messages-menu-sort-key "Title")
 			#'(lambda (item) 0))
-	;		    (folder-param :id item)))
-		       ((string= get-messages-menu-sort-key "Unread")
+	;		    (the-old-folder-param :id item)))
+		       ((string= the-old-get-messages-menu-sort-key "Unread")
 			#'(lambda (item)
 			    0)))))
-;			    (let* ((unread (get-unread-by-container item))
-;				   (count (if (null unread) 0 (unread-param :count unread))))
+;			    (let* ((unread (the-old-get-unread-by-container item))
+;				   (count (if (null unread) 0 (the-old-unread-param :count unread))))
 ;			      count))))))
 ;	(setq items
 ;	      (sort items
@@ -756,7 +756,7 @@
 ;			    (vright (funcall selector right)))
 ;			(string< vleft vright)))))
 	(mapc (lambda (item)
-		(menu-subscription-row item))
+		(the-old-menu-subscription-row item))
 	      items)))
     ;; remove empty line at the end
     (let ((beg (point)))
@@ -766,7 +766,7 @@
     (goto-char (point-min))
     (current-buffer)))
 
-(defun get-list-articles ()
+(defun the-old-get-list-articles ()
   "Get subscriptions and print them into table"
   (setq the-old-current-mode :articles)
   (with-current-buffer (get-buffer-create the-old-buffer)
@@ -776,16 +776,16 @@
 	((items
 	  (if (null the-old-filter-subscription)
 	      the-old-articles
-	    (filter
+	    (the-old-filter
 	     (lambda (a)
-	       (string= the-old-filter-subscription (article-param :stream-id a)))
+	       (string= the-old-filter-subscription (the-old-article-param :stream-id a)))
 	     the-old-articles))))
       (let ((selector (cond	       
-		       ((string= get-messages-menu-sort-key "Date")
+		       ((string= the-old-get-messages-menu-sort-key "Date")
 			#'(lambda (item) 0))
-		       ((string= get-messages-menu-sort-key "Subscription")
+		       ((string= the-old-get-messages-menu-sort-key "Subscription")
 			#'(lambda (item) 0))		       
-		       ((string= get-messages-menu-sort-key "Title")
+		       ((string= the-old-get-messages-menu-sort-key "Title")
 			#'(lambda (item) 0)))))
 ;	(setq items
 ;	      (sort items
@@ -794,7 +794,7 @@
 ;			    (vright (funcall selector right)))
 ;			(string< vleft vright)))))
 	(mapc (lambda (item)
-		(menu-article-row item))
+		(the-old-menu-article-row item))
 	      items)))
     ;; remove empty line at the end
     (let ((beg (point)))
@@ -808,7 +808,7 @@
 ;;
 ;; Sorting
 ;;
-(defun get-messages-menu-sort-by-column (&optional e)
+(defun the-old-get-messages-menu-sort-by-column (&optional e)
   "Sort the messages menu by the last column clicked on."
   (interactive (list last-input-event))
   (if e (mouse-select-window e))
@@ -817,24 +817,24 @@
          (col (if obj
                   (get-text-property (cdr obj) 'column-name (car obj))
                 (get-text-property (posn-point pos) 'column-name))))
-    (setq get-messages-menu-sort-key col)
-    (get-folders-menu)))
+    (setq the-old-get-messages-menu-sort-key col)
+    (the-old-get-folders-menu)))
 
-(defun get-messages-menu-sort-by-column-interactively (column-number)
+(defun the-old-get-messages-menu-sort-by-column-interactively (column-number)
   "Change column sorting by column number"
   (interactive)
-  (setq get-messages-menu-sort-key (car(nth column-number get-column-alist)))
-  (get-folders-menu))
+  (setq the-old-get-messages-menu-sort-key (car(nth column-number get-column-alist)))
+  (the-old-get-folders-menu))
 
-(defvar get-messages-menu-sort-button-map
+(defvar the-old-get-messages-menu-sort-button-map
   (let ((map (make-sparse-keymap)))
-    (define-key map [header-line mouse-1] 'get-messages-menu-sort-by-column)
+    (define-key map [header-line mouse-1] 'the-old-get-messages-menu-sort-by-column)
     (define-key map [follow-link] 'mouse-face)
     map)
   "Local keymap for messages menu sort buttons.")
 
 
-(defun get-messages-menu-mode ()
+(defun the-old-get-messages-menu-mode ()
   "Major mode for browsing a news"
   (kill-all-local-variables)
   (use-local-map the-old-menu-mode-map)
@@ -844,18 +844,18 @@
   (setq buffer-read-only t)
   (setq truncate-lines t)
   ;(if (fboundp 'run-mode-hooks)
-  ;    (run-mode-hooks 'get-messages-menu-mode-hook)
-  ;  (run-hooks 'get-messages-menu-mode-hook))
+  ;    (run-mode-hooks 'the-old-get-messages-menu-mode-hook)
+  ;  (run-hooks 'the-old-get-messages-menu-mode-hook))
   )
 
 
 ;;
 ;; Paints the user menu at top of the buffer and pulls functions to populate the main screen
 ;;
-(defun get-folders-menu ()
+(defun the-old-get-folders-menu ()
   "Shows menu"
-  (with-current-buffer (get-list-folders)
-    (get-messages-menu-mode)
+  (with-current-buffer (the-old-get-list-folders)
+    (the-old-get-messages-menu-mode)
     (setq header-line-format
           (mapconcat
            (lambda (pair)
@@ -870,9 +870,9 @@
                             'column-name name
                             'help-echo "mouse-1: sort by column"
                             'mouse-face 'highlight
-                            'keymap get-messages-menu-sort-button-map
+                            'keymap the-old-get-messages-menu-sort-button-map
 			    ))))
-           menu-folder-columns ""))
+           the-old-menu-folder-columns ""))
     (switch-to-buffer (current-buffer) nil t)
     )
   )
@@ -880,10 +880,10 @@
 ;;
 ;; Paints the user menu at top of the buffer and pulls functions to populate the main screen
 ;;
-(defun get-subscriptions-menu ()
+(defun the-old-get-subscriptions-menu ()
   "Shows subscriptions secreen"
-  (with-current-buffer (get-list-subscriptions)
-    (get-messages-menu-mode)
+  (with-current-buffer (the-old-get-list-subscriptions)
+    (the-old-get-messages-menu-mode)
     (setq header-line-format
           (mapconcat
            (lambda (pair)
@@ -898,9 +898,9 @@
                             'column-name name
                             'help-echo "mouse-1: sort by column"
                             'mouse-face 'highlight
-                            'keymap get-messages-menu-sort-button-map
+                            'keymap the-old-get-messages-menu-sort-button-map
 			    ))))
-           menu-subscription-columns ""))
+           the-old-menu-subscription-columns ""))
     (switch-to-buffer (current-buffer) nil t)
     )
   )
@@ -908,10 +908,10 @@
 ;;
 ;; Paints the user menu at top of the buffer and pulls functions to populate the main screen
 ;;
-(defun get-articles-menu ()
+(defun the-old-get-articles-menu ()
   "Shows articles secreen"
-  (with-current-buffer (get-list-articles)
-    (get-messages-menu-mode)
+  (with-current-buffer (the-old-get-list-articles)
+    (the-old-get-messages-menu-mode)
     (setq header-line-format
           (mapconcat
            (lambda (pair)
@@ -926,9 +926,9 @@
                             'column-name name
                             'help-echo "mouse-1: sort by column"
                             'mouse-face 'highlight
-                            'keymap get-messages-menu-sort-button-map
+                            'keymap the-old-get-messages-menu-sort-button-map
 			    ))))
-           menu-article-columns ""))
+           the-old-menu-article-columns ""))
     (switch-to-buffer (current-buffer) nil t)
     )
   )
@@ -939,18 +939,18 @@
 (defun the-old ()
   "Display a list of folders."
   (interactive)
-  ;(unless filter-preset-current (filter-preset-parse-and-set 0)) ;; set filter for first time
+  ;(unless the-old-filter-preset-current (the-old-filter-preset-parse-and-set 0)) ;; set the-old-filter for first time
   (unless the-old-api-token
     (progn
       (unless the-old-api-passwd (setq the-old-api-passwd (read-passwd "Password:")))
-      (setq the-old-api-token (api-get-token))
+      (setq the-old-api-token (the-old-api-get-token))
       (kill-new the-old-api-token)
       ;;(message the-old-api-token)  
       ))
-  (refresh-structure)
-  (refresh-container-items (get-subscription "s=user/-/state/com.google/reading-list")) ;;"feed/573c0b8dc70bc2551d0004c1"))
+  (the-old-refresh-structure)
+  (the-old-refresh-container-items (the-old-get-subscription "s=user/-/state/com.google/reading-list")) ;;"feed/573c0b8dc70bc2551d0004c1"))
   (let ((p (point)))
-    ;(get-subscriptions-menu)
+    ;(the-old-get-subscriptions-menu)
     (funcall the-old-current-list-function)
     (goto-char p))
   )
