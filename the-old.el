@@ -253,7 +253,7 @@
     (the-old-api-post (the-old-get-cmd-url :mark-as-read)
 	      `(("s"  . ,subscription-id)))))
 
-(defun the-old-api-mark-the-old-article-parameter (article action parameter)
+(defun the-old-api-mark-article-parameter (article action parameter)
   "set/unset article parameter, action: a - mark / r - remove mark"
   (let* ((article-id (the-old-article-param :id article))
 	 (param (the-old-alist-get the-old-item-parameters parameter)))
@@ -263,11 +263,11 @@
 
 (defun the-old-api-mark-article (article parameter)
   "mark article with parameter"
-  (the-old-api-mark-the-old-article-parameter article "a" parameter))
+  (the-old-api-mark-article-parameter article "a" parameter))
 
 (defun the-old-api-unmark-article (article parameter)
   "remove article mark"
-  (the-old-api-mark-the-old-article-parameter article "r" parameter))
+  (the-old-api-mark-article-parameter article "r" parameter))
 
 (defun the-old-api-toggle-article-parameter (article parameter)
   "toggle article parameter"
@@ -277,7 +277,7 @@
   "set article read"
   (when (the-old-article-unread? article) (the-old-api-mark-article article :read)))
 
-(defun the-old-api-set-article-unread? (article)
+(defun the-old-api-set-article-unread (article)
   "set article unread"
   (unless (the-old-article-unread? article) (the-old-api-unmark-article article :read)))
 
@@ -335,7 +335,7 @@
   "refresh stream"
   (let ((art (the-old-api-query :stream (concat "&s=" (the-old-alist-get cont 'id)
 					"&n=1000"
-					"&xt=user/-/state/com.google/read"
+					;;"&xt=user/-/state/com.google/read"
 					))))
     (setq the-old-articles (the-old-vec-to-list(the-old-alist-get art 'items)))
     (setq the-old-articles-continuation (the-old-alist-get art 'continuation))))
@@ -444,7 +444,7 @@
   (not (the-old-article-paramater-set? article :read)))
 
 (defun the-old-article-starred? (article)
-  "is article unread?"
+  "is article starred?"
   (the-old-article-paramater-set? article :starred))
 
 ;;
@@ -535,7 +535,7 @@
 						  (the-old-api-set-article-read (the-old-get-article (the-old-get-row-id)))))
   ;; set item unread
   (define-key the-old-menu-mode-map (kbd "u") (lambda () (interactive)
-						  (the-old-api-set-article-unread? (the-old-get-article (the-old-get-row-id)))))
+						  (the-old-api-set-article-unread (the-old-get-article (the-old-get-row-id)))))
   ;; toggle star
   (define-key the-old-menu-mode-map (kbd "s") (lambda () (interactive)
 						(the-old-api-toggle-article-parameter (the-old-get-article (the-old-get-row-id)) :starred)))
