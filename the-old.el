@@ -460,7 +460,7 @@
 (defun the-old-menu-quick-help ()
   "Menu bar - cheatsheet"
   (interactive)
-  (message "n-ext, p-revious, m-mode, a-add new subscription, d-remove subscription, v-show article, RET-browse article(SHR), w-open in browser, c-kill article address, g-reload data, l-clear filters/redraw, t-toggle read, r-set read, u-set unread, s-toggle star, e-open article in emacs, *-mark all read, \\-show item, o-show row id, h-help, q-quit"))
+  (message "n-ext, p-revious, m-mode, a-add new subscription, d-remove subscription, v-show article, RET-browse article(SHR), w-open in browser, c-kill article address, g-reload data, l-clear filters/redraw, t-toggle read, r-set read, u-set unread, s-toggle star, *-mark all read, \\-show item, o-show row id, h-help, q-quit"))
 
 ;;
 ;; Keybindings
