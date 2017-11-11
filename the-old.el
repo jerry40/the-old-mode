@@ -256,7 +256,7 @@
 (defun the-old-api-mark-the-old-article-parameter (article action parameter)
   "set/unset article parameter, action: a - mark / r - remove mark"
   (let* ((article-id (the-old-article-param :id article))
-	 (param (alist-get the-old-item-parameters parameter)))
+	 (param (the-old-alist-get the-old-item-parameters parameter)))
     (the-old-api-post (the-old-get-cmd-url :update-item)
 	      `(("i"     . ,article-id)
 		(,action . ,param)))))
@@ -460,7 +460,7 @@
 (defun the-old-menu-quick-help ()
   "Menu bar - cheatsheet"
   (interactive)
-  (message "n-ext, p-revious, TAB-mode, a-dd new subscription, DEL-remove subscription, W-copy addr, w-open in browser, R-eload data, SPC-toggle read, r-set read, u-set unread, s-toggle star, e-open article in emacs, ALT+a-clear the-old-filters, CTRL+R-mark all read, \\-item, i-row id, h-elp, q-uit"))
+  (message "n-ext, p-revious, m-mode, a-add new subscription, d-remove subscription, v-show article, RET-browse article(SHR), w-open in browser, c-kill article address, g-reload data, l-clear filters/redraw, t-toggle read, r-set read, u-set unread, s-toggle star, e-open article in emacs, *-mark all read, \\-show item, o-show row id, h-help, q-quit"))
 
 ;;
 ;; Keybindings
@@ -473,11 +473,11 @@
   ;;
   (define-key the-old-menu-mode-map "n" 'next-line)
   (define-key the-old-menu-mode-map "p" 'previous-line)
-  (define-key the-old-menu-mode-map "i" '(lambda () (interactive) (message (the-old-get-row-id))))
+  (define-key the-old-menu-mode-map "o" '(lambda () (interactive) (message (the-old-get-row-id))))
   (define-key the-old-menu-mode-map "a" '(lambda (web-addr) (interactive "sAdd new subscription. Enter the address: ") (message (the-old-api-add-subscription web-addr))))
-  (define-key the-old-menu-mode-map (kbd "DEL") 'the-old-menu-remove-subscription)
+  (define-key the-old-menu-mode-map "d" 'the-old-menu-remove-subscription)
   (define-key the-old-menu-mode-map "\\" '(lambda () (interactive) (message "%s" (the-old-get-article (the-old-get-row-id)))))
-  (define-key the-old-menu-mode-map "W" '(lambda () (interactive)
+  (define-key the-old-menu-mode-map "c" '(lambda () (interactive)
 					   (let ((addr (cdar
 							(elt
 							 (the-old-article-param :canonical (the-old-get-article (the-old-get-row-id)))
@@ -492,7 +492,7 @@
 					     (browse-url addr)
 					     (the-old-api-set-article-read (the-old-get-article (the-old-get-row-id)))
 					     )))
-  (define-key the-old-menu-mode-map (kbd "TAB") '(lambda () (interactive)
+  (define-key the-old-menu-mode-map "m" '(lambda () (interactive)
 					   (setq the-old-current-list-function
 						 (cond
 						  ((eq the-old-current-mode :folders) 'the-old-get-subscriptions-menu)
@@ -501,10 +501,10 @@
 					   (the-old-redraw)
 					   ))
   ;; refresh (get all data)
-  (define-key the-old-menu-mode-map "R" '(lambda () (interactive)
+  (define-key the-old-menu-mode-map "g" '(lambda () (interactive)
 					   (the-old)))
 
-  (define-key the-old-menu-mode-map (kbd "M-a") '(lambda () (interactive)
+  (define-key the-old-menu-mode-map "l" '(lambda () (interactive)
 					     (progn
 					       (setq the-old-filter-folder nil)
 					       (setq the-old-filter-subscription nil)
@@ -512,7 +512,7 @@
 					       (the-old-redraw))))
 
   ;; mark all items in subscription read
-  (define-key the-old-menu-mode-map (kbd "C-r")
+  (define-key the-old-menu-mode-map "*"
     '(lambda () (interactive)
        (message
 	(the-old-api-mark-subscription-read
@@ -528,7 +528,7 @@
   ;(define-key the-old-menu-mode-map "6" '(lambda () (interactive) (get-messages-menu-sort-by-column-interactively 5)))
   ;(define-key the-old-menu-mode-map "7" '(lambda () (interactive) (get-messages-menu-sort-by-column-interactively 6)))
   ;; toggle read/unread
-  (define-key the-old-menu-mode-map (kbd "SPC") (lambda () (interactive)
+  (define-key the-old-menu-mode-map "t" (lambda () (interactive)
 						  (the-old-api-toggle-article-parameter (the-old-get-article (the-old-get-row-id)) :read)))
   ;; set item read
   (define-key the-old-menu-mode-map (kbd "r") (lambda () (interactive)
@@ -540,7 +540,7 @@
   (define-key the-old-menu-mode-map (kbd "s") (lambda () (interactive)
 						(the-old-api-toggle-article-parameter (the-old-get-article (the-old-get-row-id)) :starred)))
   ;; show article / open folder / open subscription
-  (define-key the-old-menu-mode-map (kbd "RET")
+  (define-key the-old-menu-mode-map "v"
     (lambda () (interactive)
       (let ((id (the-old-get-row-id)))
 	(cond
@@ -561,7 +561,7 @@
 	    (other-window 1)
 	    (run-at-time "0 sec" nil 'the-old-api-set-article-read article)))))))
   
-  (define-key the-old-menu-mode-map (kbd "e") '(lambda () (interactive) 
+  (define-key the-old-menu-mode-map (kbd "RET") '(lambda () (interactive) 
 						 (let ((addr (cdar
 							      (elt
 							       (the-old-article-param :canonical (the-old-get-article (the-old-get-row-id)))
