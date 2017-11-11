@@ -256,7 +256,7 @@
 (defun the-old-api-mark-the-old-article-parameter (article action parameter)
   "set/unset article parameter, action: a - mark / r - remove mark"
   (let* ((article-id (the-old-article-param :id article))
-	 (param (alist-get the-old-item-parameters parameter)))
+	 (param (the-old-alist-get the-old-item-parameters parameter)))
     (the-old-api-post (the-old-get-cmd-url :update-item)
 	      `(("i"     . ,article-id)
 		(,action . ,param)))))
