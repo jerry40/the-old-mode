@@ -596,6 +596,10 @@
 					   (interactive "sEnter article title filter value (regular expression):")
 					   (setq the-old-filter-name (if (= (length s) 0) nil s))
 					   (the-old-redraw)))
+  (define-key the-old-menu-mode-map "4" '(lambda (s)
+					   (interactive "sEnter article title and content filter value (regular expression):")
+					   (setq the-old-filter-content (if (= (length s) 0) nil s))
+					   (the-old-redraw)))
   
   ;; toggle read/unread
   (define-key the-old-menu-mode-map "t" (lambda () (interactive)
@@ -884,7 +888,7 @@
    (or (null the-old-filter-read) (and (= the-old-filter-read (if (the-old-article-unread? article) ?1 ?2))))
    (or (null the-old-filter-starred) (and (= the-old-filter-starred (if (the-old-article-starred? article) ?1 ?2))))
    (or (null the-old-filter-name) (string-match-p the-old-filter-name (the-old-article-param :title article)))
-   ;(or (null the-old-filter-content) (string-match-p the-old-filter-content (the-old-article-param :content article)))
+   (or (null the-old-filter-content) (string-match-p the-old-filter-content (the-old-article-param :content article)) (string-match-p the-old-filter-content (the-old-article-param :title article)))
    ;(or (null the-old-filter-days) (> (* 3600 24 the-old-filter-days) (/ (string-to-number (the-old-unread-param :published article)) 1000000))))
   ))
 
