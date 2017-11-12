@@ -203,7 +203,7 @@
 			args
 			"&"))
 	    )
-	(url-retrieve-synchronously addr 1))
+	(url-retrieve-synchronously addr t))
     (goto-char (point-min))
     (re-search-forward "^$")
     (delete-region (point) (point-min))
@@ -277,27 +277,28 @@
 
 (defun the-old-api-mark-article-parameter (article action parameter &optional silent)
   "set/unset article parameter, action: a - mark / r - remove mark"
-  (let ((article-id (the-old-article-param :id article)))
-    (let ((param (the-old-alist-get the-old-item-parameters parameter)))
-      (let ((result (the-old-api-post (the-old-get-cmd-url :update-item)
-				      `(("i"     . ,article-id)
-					(,action . ,param)))))
-	(let ((answer (the-old-api-answer result)))
-	  (when (string= answer "OK")
-	    (progn
-	      (let ((new-article (the-old-api-get-article (the-old-article-param :id article))))
-		(setq the-old-articles (the-old-replace-obj-by-id new-article the-old-articles))
-		(let ((cur-pos (current-column)))
-		  (setq buffer-read-only nil)
-		  (forward-line 0)
-		  (the-old-menu-article-row new-article)
-		  (delete-region (- (line-beginning-position) 1) (line-end-position))
-		  (move-to-column cur-pos)
-		  (setq buffer-read-only t)
-		  ))	  
-	      (unless silent
-		(format "The article %smarked as '%s'." (if (string= action "a") "" "un") parameter))))
-	  (message answer))))))
+  (letrec ((article-id (the-old-article-param :id article))
+	   (param (the-old-alist-get the-old-item-parameters parameter))
+	   (result (the-old-api-post (the-old-get-cmd-url :update-item)
+				     `(("i"     . ,article-id)
+				       (,action . ,param))))
+	   (answer (the-old-api-answer result)))
+    (if (string= answer "OK")
+	(progn
+	  ;; refresh edited line
+	  (let ((new-article (the-old-api-get-article (the-old-article-param :id article))))
+	    (setq the-old-articles (the-old-replace-obj-by-id new-article the-old-articles))
+	    (let ((cur-pos (current-column)))
+	      (setq buffer-read-only nil)
+	      (forward-line 0)
+	      (the-old-menu-article-row new-article)
+	      (delete-region (- (line-beginning-position) 1) (line-end-position))
+	      (move-to-column cur-pos)
+	      (setq buffer-read-only t)
+	      ))	  
+	  (unless silent
+	    (message (format "The article %smarked as '%s'." (if (string= action "a") "" "un") parameter))))
+      (message answer))))
 
 (defun the-old-api-mark-article (article parameter &optional silent)
   "mark article with parameter"
@@ -378,7 +379,7 @@
   (let ((res
 	 (the-old-filter
 	  (lambda (f)
-	    (string= id w))
+	    (string= id (the-old-alist-get f 'id)))
 	  a-list)))
     (if (null res)
 	res
@@ -425,11 +426,6 @@
   (let ((f-id (the-old-folder-param :id cont)))
     (the-old-get-obj-by-id f-id the-old-unread)))
   
-;(defun get-value-by-param (param a-list param-dict)
-;  "get value of alist by parameter name (it decoded by param-dict, see the-old-subscription-fields for example)"
-;  (let ((field (cdr (assoc param param-dict))))
-;    (cdr (assoc field a-list))))
-
 (defun the-old-get-value-by-param (param a-list param-dict)
   "get value of alist by parameter name recursively (it decoded by param-dict, see the-old-subscription-fields for example)"
   (if-let ((p (caar param-dict))
@@ -446,11 +442,6 @@
        )
     )
   )
-
-;(the-old-get-value-by-param- :id (the-old-get-article "tag:google.com,2005:reader/item/5753ddee5f45b74522000339") the-old-article-fields)
-;(the-old-alist-get (the-old-alist-get (the-old-get-article "tag:google.com,2005:reader/item/5753ddee5f45b74522000339") 'summary) 'content)
-;(cdr (assoc 'summary (the-old-get-article "tag:google.com,2005:reader/item/5753ddee5f45b74522000339")))
-
 
 (defun the-old-folder-param (param folder)
   "get folder attribute by parameter name"
@@ -567,7 +558,7 @@
   ;(define-key the-old-menu-mode-map "7" '(lambda () (interactive) (get-messages-menu-sort-by-column-interactively 6)))
   ;; toggle read/unread
   (define-key the-old-menu-mode-map "t" (lambda () (interactive)
-						  (the-old-api-toggle-article-parameter (the-old-get-article (the-old-get-row-id)) :read 1)))
+						  (the-old-api-toggle-article-parameter (the-old-get-article (the-old-get-row-id)) :read)))
   ;; set item read
   (define-key the-old-menu-mode-map (kbd "r") (lambda () (interactive)
 						  (the-old-api-set-article-read (the-old-get-article (the-old-get-row-id)))))
@@ -694,6 +685,7 @@
   "Prepare article to show at main table"
   (let* ((id (the-old-article-param :id article))
 	 (title (the-old-article-param :title article))
+	 (starred (the-old-article-starred? article))
 	 (origin-title
 	  (let ((ot (the-old-article-param :origin-title article)))
 	    (substring ot 0
@@ -718,7 +710,7 @@
       (insert (propertize origin-title 'font-lock-face face))      
       ; name
       (indent-to (the-old-alist-get the-old-menu-article-columns "Title") 2)
-      (insert (propertize title 'font-lock-face face))
+      (insert (propertize (concat (when starred "* ") title) 'font-lock-face face))
       ; unread count
       ;(indent-to (the-old-alist-get the-old-menu-article-columns "Unread") 2)
       ;(insert (propertize (format "%9s" count) 'font-lock-face face))
