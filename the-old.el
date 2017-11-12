@@ -189,6 +189,7 @@
 
 (defun the-old-api-ask (query-type addr &optional args)
   "query-type = POST/GET, addr = web address, args = arguments (body of POST)"
+  (message "Contacting host")
   (with-current-buffer
       (let ((url-request-method query-type)
 	    (url-request-extra-headers
@@ -202,11 +203,13 @@
 			args
 			"&"))
 	    )
-	(url-retrieve-synchronously addr))
+	(url-retrieve-synchronously addr 1))
     (goto-char (point-min))
     (re-search-forward "^$")
     (delete-region (point) (point-min))
-    (decode-coding-string (buffer-string) 'utf-8)))
+    (message "Done")
+    (decode-coding-string (buffer-string) 'utf-8))
+  )
 
 
 (defun the-old-api-get (addr)
@@ -224,6 +227,11 @@
     (the-old-get-cmd-url cmd
 		 params))))
 
+;; get last line of the-old-get-cmd-url result
+(defun the-old-api-answer (url-answer)
+  "Try to get an api answer (ignored all lines except the last)"
+  (string-trim (car (last (split-string url-answer "\n")))))
+
 (defun the-old-api-get-token ()
   "get security token by usern ame and pasword"
   (let ((client-login
@@ -233,6 +241,20 @@
 					   ("Email" . ,the-old-api-login)
 					   ("Passwd" . ,the-old-api-passwd)))))
     (cdr (assoc 'Auth (json-read-from-string client-login)))))
+
+(defun the-old-refresh-container-items (cont)
+  "refresh stream"
+  (let ((articles (the-old-api-query :stream (concat "&s=" (the-old-alist-get cont 'id)
+						     "&n=1000"
+						     ;;"&xt=user/-/state/com.google/read"
+						     ))))
+    (setq the-old-articles (the-old-vec-to-list (the-old-alist-get articles 'items)))
+    (setq the-old-articles-continuation (the-old-alist-get articles 'continuation))))
+
+(defun the-old-api-get-article (article-id)
+  "Get an article by id (id example: feed/00157a17b192950b65be3791)"
+  (let ((article (json-read-from-string (the-old-api-post (the-old-get-cmd-url :items) `(("i" . ,article-id))))))
+    (car (the-old-vec-to-list (the-old-alist-get article 'items)))))
 
 (defun the-old-api-add-subscription (address)
   "add subscription"
@@ -253,41 +275,66 @@
     (the-old-api-post (the-old-get-cmd-url :mark-as-read)
 	      `(("s"  . ,subscription-id)))))
 
-(defun the-old-api-mark-article-parameter (article action parameter)
+(defun the-old-api-mark-article-parameter (article action parameter &optional silent)
   "set/unset article parameter, action: a - mark / r - remove mark"
-  (let* ((article-id (the-old-article-param :id article))
-	 (param (the-old-alist-get the-old-item-parameters parameter)))
-    (the-old-api-post (the-old-get-cmd-url :update-item)
-	      `(("i"     . ,article-id)
-		(,action . ,param)))))
+  (letrec ((article-id (the-old-article-param :id article))
+	   (param (the-old-alist-get the-old-item-parameters parameter))
+           (result (the-old-api-post (the-old-get-cmd-url :update-item)
+				     `(("i"     . ,article-id)
+				       (,action . ,param)))))
+    (unless silent
+      (let ((answer (the-old-api-answer result)))
+	(message
+	 (if (string= answer "OK")
+	     (progn
+	       (let ((new-article (the-old-api-get-article (the-old-article-param :id article))))
+		 ;(delete article the-old-articles)
+		 ;(setq the-old-articles (cons new-article the-old-articles))
+					;(the-old-menu-article-row new-article)
+		 (setq the-old-articles (the-old-replace-obj-by-id new-article the-old-articles))
+		 ;;(the-old-get-list-articles)
+		 (let ((cur-pos (current-column)))
+		   (setq buffer-read-only nil)
+		   (forward-line 0)
+		   (the-old-menu-article-row new-article)
+		   (delete-region (- (line-beginning-position) 1) (line-end-position))
+		   (move-to-column cur-pos)
+		   (setq buffer-read-only t)
+		   ))
+	       (format "The article %smarked as '%s'." (if (string= action "a") "" "un") parameter)
+	       ;(if (string= action "a")
+		;   (format "The article marked as '%s'." parameter)
+		 ;(format "The article unmarked as '%s'." parameter))
+	       )
+	   answer))))))
 
-(defun the-old-api-mark-article (article parameter)
+(defun the-old-api-mark-article (article parameter &optional silent)
   "mark article with parameter"
-  (the-old-api-mark-article-parameter article "a" parameter))
+  (the-old-api-mark-article-parameter article "a" parameter silent))
 
-(defun the-old-api-unmark-article (article parameter)
+(defun the-old-api-unmark-article (article parameter &optional silent)
   "remove article mark"
-  (the-old-api-mark-article-parameter article "r" parameter))
+  (the-old-api-mark-article-parameter article "r" parameter silent))
 
-(defun the-old-api-toggle-article-parameter (article parameter)
+(defun the-old-api-toggle-article-parameter (article parameter &optional silent)
   "toggle article parameter"
-  (funcall (if (the-old-article-paramater-set? article parameter) 'the-old-api-unmark-article 'the-old-api-mark-article) article parameter))
+  (funcall (if (the-old-article-paramater-set? article parameter) 'the-old-api-unmark-article 'the-old-api-mark-article) article parameter silent))
 
-(defun the-old-api-set-article-read (article)
+(defun the-old-api-set-article-read (article &optional silent)
   "set article read"
-  (when (the-old-article-unread? article) (the-old-api-mark-article article :read)))
+   (when (the-old-article-unread? article) (the-old-api-mark-article article :read silent)))
 
-(defun the-old-api-set-article-unread (article)
+(defun the-old-api-set-article-unread (article &optional silent)
   "set article unread"
-  (unless (the-old-article-unread? article) (the-old-api-unmark-article article :read)))
+  (unless (the-old-article-unread? article) (the-old-api-unmark-article article :read silent)))
 
-(defun the-old-api-set-article-starred (article)
+(defun the-old-api-set-article-starred (article &optional silent)
   "set article starred"
-  (when (the-old-article-starred? article) (the-old-api-mark-article article :starred)))
+  (when (the-old-article-starred? article) (the-old-api-mark-article article :starred silent)))
 
-(defun the-old-api-set-article-unstarred (article)
+(defun the-old-api-set-article-unstarred (article &optional silent)
   "set article unstarred"
-  (unless (the-old-article-starred? article) (the-old-api-unmark-article article :starred)))
+  (unless (the-old-article-starred? article) (the-old-api-unmark-article article :starred silent)))
 
 ;; =================================================================================================
 ;; helpers
@@ -331,16 +378,6 @@
     (setq the-old-unread unread)
     ))
 
-(defun the-old-refresh-container-items (cont)
-  "refresh stream"
-  (let ((art (the-old-api-query :stream (concat "&s=" (the-old-alist-get cont 'id)
-					"&n=1000"
-					;;"&xt=user/-/state/com.google/read"
-					))))
-    (setq the-old-articles (the-old-vec-to-list(the-old-alist-get art 'items)))
-    (setq the-old-articles-continuation (the-old-alist-get art 'continuation))))
-
-
 ;; =================================================================================================
 ;; api objects parsing
 ;; =================================================================================================
@@ -355,6 +392,17 @@
     (if (null res)
 	res
       (car res))))
+
+(defun the-old-replace-obj-by-id (new-item a-list &optional lst)
+  "Replace an element in list"
+  (the-old-replace-obj-by-id-helper (the-old-alist-get new-item 'id) new-item a-list ()))
+
+(defun the-old-replace-obj-by-id-helper (id new-item a-list lst)
+  "Replace an element in list"
+  (let ((item-to-check (car a-list)))
+    (if (string= id (the-old-alist-get item-to-check 'id))
+	(append (append lst (list new-item)) (cdr a-list))
+      (the-old-replace-obj-by-id-helper id new-item (cdr a-list) (append lst (list item-to-check))))))
 
 (defun the-old-get-folder (id)
   "get folder by id"
@@ -529,7 +577,7 @@
   ;(define-key the-old-menu-mode-map "7" '(lambda () (interactive) (get-messages-menu-sort-by-column-interactively 6)))
   ;; toggle read/unread
   (define-key the-old-menu-mode-map "t" (lambda () (interactive)
-						  (the-old-api-toggle-article-parameter (the-old-get-article (the-old-get-row-id)) :read)))
+						  (the-old-api-toggle-article-parameter (the-old-get-article (the-old-get-row-id)) :read 1)))
   ;; set item read
   (define-key the-old-menu-mode-map (kbd "r") (lambda () (interactive)
 						  (the-old-api-set-article-read (the-old-get-article (the-old-get-row-id)))))
