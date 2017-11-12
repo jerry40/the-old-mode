@@ -107,6 +107,11 @@
 ;; global filters
 (defvar the-old-filter-folder ())        ; current selected folder id
 (defvar the-old-filter-subscription ())  ; current selected subscription id
+(defvar the-old-filter-read ())          ; filter by read/unreaad
+(defvar the-old-filter-starred ())       ; filter by starred
+(defvar the-old-filter-name ())          ; filter by name (regular expression)
+(defvar the-old-filter-content ())       ; filter by content (regular expression)
+(defvar the-old-filter-days ())          ; filter by days 
 
 ;; current mode (folders / subscriptions / articles)
 (defvar the-old-current-mode nil
@@ -348,7 +353,7 @@
   (append vec nil))
 
 (defun the-old-date-diff (sec)
-  "Convert date diference in seconds to human readable format"
+  "Convert date difference in seconds to human readable format"
   (cond
    ((< sec 0) "never")
    ((< sec 3600) (concat (number-to-string (/ sec 60)) " m"))
@@ -415,11 +420,11 @@
 (defun the-old-get-subscriptions-by-folder-id (folder-id)
   "get subscriptions by folder id"
   (the-old-filter (lambda (s)
-	    (not (null
-		  (the-old-get-obj-by-id
-		   folder-id
-		   (the-old-vec-to-list (the-old-subscription-param :categories s))))))
-	  the-old-subscriptions))
+		    (not (null
+			  (the-old-get-obj-by-id
+			   folder-id
+			   (the-old-vec-to-list (the-old-subscription-param :categories s))))))
+		  the-old-subscriptions))
 
 (defun the-old-get-unread-by-container (cont)
   "get unread count for particular folder or subscription"
@@ -537,7 +542,11 @@
 					     (progn
 					       (setq the-old-filter-folder nil)
 					       (setq the-old-filter-subscription nil)
-					       (message "The-Old-Filters cleared")
+					       (setq the-old-filter-read nil)
+					       (setq the-old-filter-starred nil)
+					       (setq the-old-filter-name nil)
+					       (setq the-old-filter-content nil)
+					       (message "filters cleared")
 					       (the-old-redraw))))
 
   ;; mark all items in subscription read
@@ -556,6 +565,38 @@
   ;(define-key the-old-menu-mode-map "5" '(lambda () (interactive) (get-messages-menu-sort-by-column-interactively 4)))
   ;(define-key the-old-menu-mode-map "6" '(lambda () (interactive) (get-messages-menu-sort-by-column-interactively 5)))
   ;(define-key the-old-menu-mode-map "7" '(lambda () (interactive) (get-messages-menu-sort-by-column-interactively 6)))
+
+  ;; filters
+  (define-key the-old-menu-mode-map "1" '(lambda (c)
+					   (interactive "cEnter filter value (1-unread, 2-read, 3-both)")
+					   (cond
+					    ((member c `(?1 ?2))
+					     (progn
+					       (setq the-old-filter-read c)
+					       (the-old-redraw)))
+					    ((= c ?3)
+					     (setq the-old-filter-read nil)
+					     (the-old-redraw))
+					    (t
+					     (message "Wrong option, ignore.")))))
+
+  (define-key the-old-menu-mode-map "2" '(lambda (c)
+					   (interactive "cEnter filter value (1-starred, 2-unstarred, 3-all)")
+					   (cond
+					    ((member c `(?1 ?2))
+					     (progn
+					       (setq the-old-filter-starred c)
+					       (the-old-redraw)))
+					    ((= c ?3)
+					     (setq the-old-filter-starred nil)
+					     (the-old-redraw))
+					    (t
+					     (message "Wrong option, ignore.")))))
+  (define-key the-old-menu-mode-map "3" '(lambda (s)
+					   (interactive "sEnter article title filter value (regular expression):")
+					   (setq the-old-filter-name (if (= (length s) 0) nil s))
+					   (the-old-redraw)))
+  
   ;; toggle read/unread
   (define-key the-old-menu-mode-map "t" (lambda () (interactive)
 						  (the-old-api-toggle-article-parameter (the-old-get-article (the-old-get-row-id)) :read)))
@@ -802,14 +843,15 @@
   (with-current-buffer (get-buffer-create the-old-buffer)
     (setq buffer-read-only nil)
     (erase-buffer)
-    (let*
+    (let
 	((items
-	  (if (null the-old-filter-subscription)
-	      the-old-articles
-	    (the-old-filter
-	     (lambda (a)
-	       (string= the-old-filter-subscription (the-old-article-param :stream-id a)))
-	     the-old-articles))))
+	  ;(if (null the-old-filter-subscription)
+	  ;    the-old-articles
+	  ;  (the-old-filter
+	  ;   (lambda (a)
+	  ;     (string= the-old-filter-subscription (the-old-article-param :stream-id a)))
+					;   the-old-articles))))
+	  (the-old-filter 'the-old-get-list-articles-filter the-old-articles)))
       (let ((selector (cond	       
 		       ((string= the-old-get-messages-menu-sort-key "Date")
 			#'(lambda (item) 0))
@@ -834,6 +876,17 @@
     (goto-char (point-min))
     (current-buffer)))
 
+(defun the-old-get-list-articles-filter (article)
+  "Filter articles"
+  (and
+   ;; (or (null the-old-filter-folder) (string= the-old-filter-folder (the-old-article-param :stream-id article)))
+   (or (null the-old-filter-subscription) (string= the-old-filter-subscription (the-old-article-param :stream-id article)))
+   (or (null the-old-filter-read) (and (= the-old-filter-read (if (the-old-article-unread? article) ?1 ?2))))
+   (or (null the-old-filter-starred) (and (= the-old-filter-starred (if (the-old-article-starred? article) ?1 ?2))))
+   (or (null the-old-filter-name) (string-match-p the-old-filter-name (the-old-article-param :title article)))
+   ;(or (null the-old-filter-content) (string-match-p the-old-filter-content (the-old-article-param :content article)))
+   ;(or (null the-old-filter-days) (> (* 3600 24 the-old-filter-days) (/ (string-to-number (the-old-unread-param :published article)) 1000000))))
+  ))
 
 ;;
 ;; Sorting
