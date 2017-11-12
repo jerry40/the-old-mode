@@ -277,36 +277,27 @@
 
 (defun the-old-api-mark-article-parameter (article action parameter &optional silent)
   "set/unset article parameter, action: a - mark / r - remove mark"
-  (letrec ((article-id (the-old-article-param :id article))
-	   (param (the-old-alist-get the-old-item-parameters parameter))
-           (result (the-old-api-post (the-old-get-cmd-url :update-item)
-				     `(("i"     . ,article-id)
-				       (,action . ,param)))))
-    (unless silent
-      (let ((answer (the-old-api-answer result)))
-	(message
-	 (if (string= answer "OK")
-	     (progn
-	       (let ((new-article (the-old-api-get-article (the-old-article-param :id article))))
-		 ;(delete article the-old-articles)
-		 ;(setq the-old-articles (cons new-article the-old-articles))
-					;(the-old-menu-article-row new-article)
-		 (setq the-old-articles (the-old-replace-obj-by-id new-article the-old-articles))
-		 ;;(the-old-get-list-articles)
-		 (let ((cur-pos (current-column)))
-		   (setq buffer-read-only nil)
-		   (forward-line 0)
-		   (the-old-menu-article-row new-article)
-		   (delete-region (- (line-beginning-position) 1) (line-end-position))
-		   (move-to-column cur-pos)
-		   (setq buffer-read-only t)
-		   ))
-	       (format "The article %smarked as '%s'." (if (string= action "a") "" "un") parameter)
-	       ;(if (string= action "a")
-		;   (format "The article marked as '%s'." parameter)
-		 ;(format "The article unmarked as '%s'." parameter))
-	       )
-	   answer))))))
+  (let ((article-id (the-old-article-param :id article)))
+    (let ((param (the-old-alist-get the-old-item-parameters parameter)))
+      (let ((result (the-old-api-post (the-old-get-cmd-url :update-item)
+				      `(("i"     . ,article-id)
+					(,action . ,param)))))
+	(let ((answer (the-old-api-answer result)))
+	  (when (string= answer "OK")
+	    (progn
+	      (let ((new-article (the-old-api-get-article (the-old-article-param :id article))))
+		(setq the-old-articles (the-old-replace-obj-by-id new-article the-old-articles))
+		(let ((cur-pos (current-column)))
+		  (setq buffer-read-only nil)
+		  (forward-line 0)
+		  (the-old-menu-article-row new-article)
+		  (delete-region (- (line-beginning-position) 1) (line-end-position))
+		  (move-to-column cur-pos)
+		  (setq buffer-read-only t)
+		  ))	  
+	      (unless silent
+		(format "The article %smarked as '%s'." (if (string= action "a") "" "un") parameter))))
+	  (message answer))))))
 
 (defun the-old-api-mark-article (article parameter &optional silent)
   "mark article with parameter"
@@ -387,7 +378,7 @@
   (let ((res
 	 (the-old-filter
 	  (lambda (f)
-	    (string= id (the-old-alist-get f 'id)))
+	    (string= id w))
 	  a-list)))
     (if (null res)
 	res
@@ -395,14 +386,13 @@
 
 (defun the-old-replace-obj-by-id (new-item a-list &optional lst)
   "Replace an element in list"
-  (the-old-replace-obj-by-id-helper (the-old-alist-get new-item 'id) new-item a-list ()))
-
-(defun the-old-replace-obj-by-id-helper (id new-item a-list lst)
-  "Replace an element in list"
-  (let ((item-to-check (car a-list)))
-    (if (string= id (the-old-alist-get item-to-check 'id))
-	(append (append lst (list new-item)) (cdr a-list))
-      (the-old-replace-obj-by-id-helper id new-item (cdr a-list) (append lst (list item-to-check))))))
+  (let ((obj-id (the-old-alist-get new-item 'id)))
+    (mapcar
+     (lambda (item)
+       (if (string= obj-id (the-old-alist-get item 'id))
+	   new-item
+	 item))
+     a-list)))
 
 (defun the-old-get-folder (id)
   "get folder by id"
