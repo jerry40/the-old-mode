@@ -1,0 +1,127 @@
+\input texinfo @c -*-texinfo*-*
+@setfilename the-old.info
+@documentencoding ISO-8859-1
+@include version.texi
+@settitle the-old manual
+@include macros.texi
+
+
+@copying
+This manual is for the-old (version @value{VERSION} of @value{UPDATED}),
+an Emacs mode to read The Old Reader subscriptions.
+Copyright @copyright{} 2017 @authors{}.
+
+@quotation
+Permission is granted to copy, distribute and/or modify this document
+under the terms of the GNU Free Documentation License, Version 1.3
+or any later version published by the Free Software Foundation;
+with no Invariant Sections, no Front-Cover Texts, and no Back-Cover Texts.
+A copy of the license is included in the section entitled
+``GNU Free Documentation License''.
+@end quotation
+
+@end copying
+
+@dircategory Emacs
+@direntry
+* the-old: (the-old). The Old Reader interface.
+@end direntry
+
+@titlepage
+@title the-old
+@subtitle The Old Reader interface
+@author @authors()
+@page
+@insertcopying
+@end titlepage
+
+@contents
+
+@ifnottex
+@node Top
+@top the-old
+
+This is the manual for the-old, an interface to The Old Reader.
+@end ifnottex
+
+@menu
+* Install::
+* Usage::
+* GNU Free Documentation License::
+@end menu
+
+@node Install
+@chapter Install
+
+As a prerequisite, you need an account for The Old Reader, and to get a token for this account. You might refer to this place : https://github.com/theoldreader/api. To get a token, enter this command line, replacing with your email and password.
+
+@code{curl -d "client=TheOld&accountType=HOSTED_OR_GOOGLE&service=reader&Email=myemail@ my.domain&Passwd=mypasswd" https://theoldreader.com/accounts/ClientLogin}
+
+You will obtain a token.
+
+Once the prerequisites are met, clone git repository.
+@code{git clone https://github.com/jerry40/the-old-mode.git}
+
+In your init.el or equivalent, add this location to load-path
+@lisp 
+(add-to-list 'load-path "/path/to/git/the-old-mode")
+@end lisp
+
+Still in init.el, add your login. You might also add password and token.
+@lisp
+(setq the-old-api-login "myemail@ my.domain")
+      the-old-api-passws "mypassword")
+      the-old-api-token "SoMetoKen")
+@end lisp
+
+Finally, load The Old.
+@lisp
+(require 'the-old)
+@end lisp
+
+@node Usage
+@chapter Usage
+
+You can run The Old with command ``the-old''. You can bind this command to your desired key, for example to @kbd{Ctrl-c o}.
+@lisp
+(global-set-key (kbd "C-c o") 'the-old)
+@end lisp
+
+After command 'the-old is launched, a new buffer ``the-old-reader'' appears, showing your subscriptions.
+
+Help is displayed when user presses @kbd{h}.
+
+@chapter Navigation
+
+You can use @kbd{m} to switch between modes : subscriptions list, labels list, articles list. Use @kbd{g} to reload data. To quit, @kbd{q} is to pressed.
+
+Use @kbd{n} and @kbd{p} to navigate to next, previous item. Press @kbd{<RET>} to open article in Emacs (using shr), @kbd{v} to show it, or @kbd{w} to open it in browser.
+
+Press @kbd{o} to obtain information about the row, @kbd{c} to copy the article address.
+
+@chapter Marking
+
+@kbd{r} to set article as read, @kbd{u} to set as unread, or @kbd{t} to toggle between these states. @kbd{s} to toggle star.
+
+To mark all items as read, you can use @kbd{*}.
+
+@chapter Filtering
+Ongoing development happens to allow filtering articles.
+One can filter articles using @kbd{1} or @kbd{2} or @kbd{3}.
+Use @kbd{l} to clear filters.
+
+@chapter Subscriptions
+Use @kbd{a} to add a subscription. When point is on a subscription, use @kbd{d} to remove it
+
+
+@node GNU Free Documentation License
+@appendix GNU Free Documentation License
+@include fdl-1.3.texi
+
+@bye
+
+@c Local Variables:
+@c mode: texinfo
+@c TeX-master: t
+@c sentence-end-double-space: t
+@c End:
