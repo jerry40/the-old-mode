@@ -629,22 +629,23 @@
 	 (t
 	  (letrec ((article (the-old-get-article (the-old-get-row-id)))
 		   (str (the-old-article-param :content article)))
+	    (run-at-time "0 sec" nil 'the-old-api-set-article-read article)
 	    (with-temp-buffer
 	      (insert str)
 	      (shr-render-buffer (current-buffer)))
 	    (other-window 1)
-	    (run-at-time "0 sec" nil 'the-old-api-set-article-read article)))))))
+	    ))))))
   
   (define-key the-old-menu-mode-map (kbd "RET") '(lambda () (interactive) 
-						 (let ((addr (cdar
-							      (elt
-							       (the-old-article-param :canonical (the-old-get-article (the-old-get-row-id)))
-							       0))))
-						   (with-temp-buffer
-						     (insert (the-old-api-get addr))
-						     (shr-render-buffer (current-buffer))
-						     (read-only-mode 1)
-						     (use-local-map the-old-show-map)))))
+						   (letrec ((article (the-old-get-article (the-old-get-row-id)))
+							    (addr (cdar (elt  (the-old-article-param :canonical article) 0))))
+						     (run-at-time "0 sec" nil 'the-old-api-set-article-read article)
+						     (with-temp-buffer
+						       (insert (the-old-api-get addr))
+						       (shr-render-buffer (current-buffer))
+						       (read-only-mode 1)
+						       (use-local-map the-old-show-map))
+						       )))
 
   ;; help
   (define-key the-old-menu-mode-map "h" 'the-old-menu-quick-help)
