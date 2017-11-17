@@ -6,7 +6,7 @@
 @set macros
 
 @macro authors {}
-Pierre-Yves Luyten
+jerry40 
 @end macro
 
 @end ifclear
