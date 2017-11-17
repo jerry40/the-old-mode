@@ -6,7 +6,8 @@
 @set macros
 
 @macro authors {}
-jerry40 
+Evgeny Panfilov
+Pierre-Yves Luyten
 @end macro
 
 @end ifclear
