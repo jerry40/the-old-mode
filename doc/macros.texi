@@ -6,6 +6,7 @@
 @set macros
 
 @macro authors {}
+Evgeny Panfilov
 Pierre-Yves Luyten
 @end macro
 
