@@ -250,7 +250,7 @@
 (defun the-old-refresh-container-items (cont)
   "refresh stream"
   (let ((articles (the-old-api-query :stream (concat "&s=" (the-old-alist-get cont 'id)
-						     "&n=1000"
+						     "&n=4000"
 						     ;;"&xt=user/-/state/com.google/read"
 						     ))))
     (setq the-old-articles (the-old-vec-to-list (the-old-alist-get articles 'items)))
