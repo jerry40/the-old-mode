@@ -247,14 +247,31 @@
 					   ("Passwd" . ,the-old-api-passwd)))))
     (cdr (assoc 'Auth (json-read-from-string client-login)))))
 
-(defun the-old-refresh-container-items (cont)
+(defun the-old-refresh-items ()
   "refresh stream"
-  (let ((articles (the-old-api-query :stream (concat "&s=" (the-old-alist-get cont 'id)
-						     "&n=4000"
-						     ;;"&xt=user/-/state/com.google/read"
+  (setq the-old-articles-continuation "0")
+  (while (not (null the-old-articles-continuation))
+    (setq the-old-articles-continuation
+	  (the-old-refresh-items-helper the-old-articles-continuation))))
+
+(defun the-old-refresh-items-helper (continuation)
+  (cond
+   ((null continuation) nil)
+   (t (let ((articles (the-old-api-query :stream (concat "&n=1000"
+						     (if (equal continuation "0") "" (concat "&c=" continuation))
+						     (cond ((null the-old-filter-read) "")
+							   ((= the-old-filter-read ?1) "&xt=user/-/state/com.google/read")
+							   ((= the-old-filter-read ?2) "&s=user/-/state/com.google/read")
+							   (t ""))
+						     (cond ((null the-old-filter-starred) "")
+							   ((= the-old-filter-starred ?1) "&s=user/-/state/com.google/starred")
+							   (t ""))
+						     (if (not (null the-old-filter-folder)) (concat "&s=" the-old-filter-folder) "")
+						     (if (not (null the-old-filter-subscription)) (concat "&s=" the-old-filter-subscription) "")
 						     ))))
-    (setq the-old-articles (the-old-vec-to-list (the-old-alist-get articles 'items)))
-    (setq the-old-articles-continuation (the-old-alist-get articles 'continuation))))
+	(setq the-old-articles (append the-old-articles (the-old-vec-to-list (the-old-alist-get articles 'items))))
+	(the-old-alist-get articles 'continuation)))))
+
 
 (defun the-old-api-get-article (article-id)
   "Get an article by id (id example: feed/00157a17b192950b65be3791)"
@@ -575,8 +592,9 @@
 					       (setq the-old-filter-read c)
 					       (the-old-redraw)))
 					    ((= c ?3)
-					     (setq the-old-filter-read nil)
-					     (the-old-redraw))
+					     (progn 
+					       (setq the-old-filter-read nil)
+					       (the-old-redraw)))
 					    (t
 					     (message "Wrong option, ignore.")))))
 
@@ -588,8 +606,9 @@
 					       (setq the-old-filter-starred c)
 					       (the-old-redraw)))
 					    ((= c ?3)
-					     (setq the-old-filter-starred nil)
-					     (the-old-redraw))
+					     (progn 
+					       (setq the-old-filter-starred nil)
+					       (the-old-redraw)))
 					    (t
 					     (message "Wrong option, ignore.")))))
   (define-key the-old-menu-mode-map "3" '(lambda (s)
@@ -1036,7 +1055,7 @@
       ;;(message the-old-api-token)  
       ))
   (the-old-refresh-structure)
-  (the-old-refresh-container-items (the-old-get-subscription "s=user/-/state/com.google/reading-list")) ;;"feed/573c0b8dc70bc2551d0004c1"))
+  (the-old-refresh-items) ;;(the-old-get-subscription "s=user/-/state/com.google/reading-list")) ;;"feed/573c0b8dc70bc2551d0004c1"))
   (let ((p (point)))
     ;(the-old-get-subscriptions-menu)
     (funcall the-old-current-list-function)
